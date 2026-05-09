@@ -115,6 +115,7 @@ Game_Battler.prototype.onTurnStart = function() {
         this._canAction = true;
         this.event().setStepAnime(true);
     }
+    this.applyConditionsTurnStart();
     this.makeActions();
     this.makeMoves(false);
 };

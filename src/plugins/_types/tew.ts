@@ -29,6 +29,7 @@ import { Tutorial } from "./tutorial";
 import { CharacterDescription } from "./characterDescription";
 import { JournalDocument } from "./journalDocument";
 import { Critical } from "./critical";
+import { Condition } from "./condition";
 
 /** Storage object for all TEW plugins */
 const TEW: {
@@ -125,6 +126,8 @@ const TEW: {
 
             AI?: Record<string, BattlerAI>;
         };
+
+        CONDITIONS?: Record<string, Condition>;
 
         WEAPON_CRITICALS?: {
             HEAD?: Critical[];

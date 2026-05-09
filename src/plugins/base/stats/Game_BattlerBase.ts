@@ -133,6 +133,7 @@ Game_BattlerBase.prototype.initialize = function() {
     this._armors = [];
     this._equippedArmors = [];
     this._ammo = {}; // ID: quantity
+    this._conditions = {}; // ID: stacks
     this._exp = 0;
     this._fate = 0;
     this._fortune = 0;
@@ -368,40 +369,40 @@ Game_BattlerBase.prototype.equippedWeapon = function() {
         ammo: 0,
         ammoType: undefined
     };
-}
+};
+
 
 // Armors
-
 Game_BattlerBase.prototype.addArmor = function(armorId: string) {
     this._armors.push(armorId);
     this.sortArmors();
-}
+};
 
 Game_BattlerBase.prototype.removeArmor = function(armorId: string) {
     const removed = this._armors.splice(this._armors.indexOf(armorId), 1);
     this.sortArmors();
     return removed[0];
-}
+};
 
 Game_BattlerBase.prototype.hasArmorTEW = function(armorId: string) {
     return this._armors.some((armor: string) => armor === armorId);
-}
+};
 
 Game_BattlerBase.prototype.hasArmorEquipped = function(armorId: string) {
     return this._equippedArmors.some((armor: string) => armor === armorId);
-}
+};
 
 Game_BattlerBase.prototype.equipArmor = function(armorId: string) {
     this._equippedArmors.push(armorId);
     this._armors.splice(this._armors.indexOf(armorId), 1);
     this.sortEquippedArmors();
-}
+};
 
 Game_BattlerBase.prototype.unequipArmor = function(armorId: string) {
     this._armors.push(armorId);
     this._equippedArmors.splice(this._equippedArmors.indexOf(armorId), 1);
     this.sortArmors();
-}
+};
 
 Game_BattlerBase.prototype.unequipArmors = function(armorIds: string[]) {
     armorIds.forEach(id => {
@@ -409,30 +410,30 @@ Game_BattlerBase.prototype.unequipArmors = function(armorIds: string[]) {
         this._equippedArmors.splice(this._equippedArmors.indexOf(id), 1);
     });
     this.sortArmors();
-}
+};
 
 Game_BattlerBase.prototype.armorsAtLocation = function(location: BodyLocation) {
     return this._equippedArmors.map((armor: string) => TEW.DATABASE.ARMORS.SET[armor])
         .filter((armor: Armor) => armor.locations.includes(location));
-}
+};
 
 Game_BattlerBase.prototype.armorsAtLocations = function(locations: BodyLocation[]) {
     return this._equippedArmors.map((armor: string) => TEW.DATABASE.ARMORS.SET[armor])
         .filter((armor: Armor) => armor.locations.some(location => locations.includes(location)));
-}
+};
 
 Game_BattlerBase.prototype.sortArmors = function() {
     this._armors = this._armors.sort((a: string, b: string) =>
         TEW.DATABASE.ARMORS.IDS.indexOf(a) - TEW.DATABASE.ARMORS.IDS.indexOf(b));
-}
+};
 
 Game_BattlerBase.prototype.sortEquippedArmors = function() {
     this._equippedArmors = this._equippedArmors.sort((a: string, b: string) =>
         TEW.DATABASE.ARMORS.IDS.indexOf(a) - TEW.DATABASE.ARMORS.IDS.indexOf(b));
-}
+};
+
 
 // Ammo
-
 Game_BattlerBase.prototype.ammo = function(ammoId: string) {
     return this._ammo[ammoId] || 0;
 };
@@ -443,7 +444,7 @@ Game_BattlerBase.prototype.ammoType = function(ammoId : string) {
 
 Game_BattlerBase.prototype.addAmmo = function(ammoId : string, quantity = 1) {
     this._ammo[ammoId] = this.ammoType(ammoId) + quantity;
-}
+};
 
 Game_BattlerBase.prototype.removeAmmo = function(ammoId: string, quantity = 1) {
     this._ammo[ammoId] = this.ammo(ammoId) - quantity;
@@ -451,8 +452,123 @@ Game_BattlerBase.prototype.removeAmmo = function(ammoId: string, quantity = 1) {
         delete this._ammo[ammoId];
     }
     return ammoId;
-}
+};
 
 Game_BattlerBase.prototype.hasAmmo = function(ammoId : string) {
     return this._ammo[ammoId] > 0;
-}
+};
+
+
+// Conditions
+Game_BattlerBase.prototype.conditionStacks = function(conditionId: string): number {
+    return this._conditions[conditionId] || 0;
+};
+
+Game_BattlerBase.prototype.hasCondition = function(conditionId: string): boolean {
+    return this.conditionStacks(conditionId) > 0;
+};
+
+Game_BattlerBase.prototype.addCondition = function(conditionId: string, amount = 1): void {
+    const condition = TEW.DATABASE.CONDITIONS[conditionId];
+    if (!condition) return;
+
+    const current = this.conditionStacks(conditionId);
+    const max = condition.maxStacks === Infinity ? Number.MAX_SAFE_INTEGER : condition.maxStacks;
+    this._conditions[conditionId] = Math.min(current + amount, max);
+};
+
+Game_BattlerBase.prototype.removeCondition = function(conditionId: string, amount: number = 1): void {
+    const current = this.conditionStacks(conditionId);
+    const next = current - amount;
+    if (next <= 0) {
+        delete this._conditions[conditionId];
+    } else {
+        this._conditions[conditionId] = next;
+    }
+};
+
+Game_BattlerBase.prototype.clearCondition = function(conditionId: string): void {
+    delete this._conditions[conditionId];
+    $gameMessage.add(`You lost condition: ${TEW.DATABASE.CONDITIONS[conditionId].name}.`);
+};
+
+Game_BattlerBase.prototype.clearAllConditions = function(): void {
+    this._conditions = {};
+};
+
+
+/**
+ * Applies condition effects at turn start
+ */
+Game_BattlerBase.prototype.applyConditionsTurnStart = function(): number {
+    let totalDamage = 0;
+    const toRemove: string[] = [];
+    let conditionId: string;
+
+    for (conditionId in this._conditions) {
+        const condition = TEW.DATABASE.CONDITIONS[conditionId];
+        if (!condition) continue;
+
+        // TODO DOT is not always 1
+        if (condition.effect.damagePerTurn) {
+            const damage = condition.effect.damagePerTurn * this._conditions[conditionId];
+            $gameMessage.add(`You ${condition.message} for ${damage} damage.`);
+            totalDamage += damage;
+        }
+
+        // TODO some conditions require tests to be rid of
+        if (condition.removeOnTurnStart) {
+            toRemove.push(conditionId);
+        }
+    }
+
+    toRemove.forEach(id => this.clearCondition(id));
+
+    if (totalDamage > 0) {
+        this.gainHp(-totalDamage); // TODO use damage execution to trigger animations and shit (+ toughness)
+    }
+
+    return totalDamage;
+};
+
+Game_BattlerBase.prototype.totalConditionModifier = function(): number {
+    let mod = 0;
+    let conditionId: string;
+    for (conditionId in this._conditions) {
+        const condition = TEW.DATABASE.CONDITIONS[conditionId];
+        if (condition?.effect.testModifier) {
+            mod += condition.effect.testModifier * this._conditions[conditionId];
+        }
+    }
+    return mod;
+};
+
+Game_BattlerBase.prototype.isBlockedByCondition = function(): boolean {
+    for (const conditionId in this._conditions) {
+        const condition = TEW.DATABASE.CONDITIONS[conditionId];
+        if (condition?.effect.blocksAction || condition?.effect.incapacitated) {
+            return true;
+        }
+    }
+    return false;
+};
+
+Game_BattlerBase.prototype.isMovementBlockedByCondition = function(): boolean {
+    for (const conditionId in this._conditions) {
+        const condition = TEW.DATABASE.CONDITIONS[conditionId];
+        if (condition?.effect.blocksMovement || condition?.effect.incapacitated) {
+            return true;
+        }
+    }
+    return false;
+};
+
+Game_BattlerBase.prototype.mustFleeDueToCondition = function(): boolean {
+    for (const conditionId in this._conditions) {
+        const condition = TEW.DATABASE.CONDITIONS[conditionId];
+        if (condition?.effect.mustFlee) {
+            return true;
+        }
+    }
+    return false;
+};

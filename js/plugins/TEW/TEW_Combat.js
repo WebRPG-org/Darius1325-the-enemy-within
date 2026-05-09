@@ -1176,6 +1176,7 @@ BattleManager.updateMove = function (forceAttackAfterMove = false) {
             this._subject.nextMove();
         }
         if (!action || !action.isMove()) {
+            console.log(action);
             if (forceAttackAfterMove) {
                 // TODO better handling with processAction ?
                 // TODO constant
@@ -1606,6 +1607,7 @@ Game_Action.prototype.initialize = function (subject, forcing, modifiers = {}) {
     this._moveRoute = 0;
     this._modifiers = modifiers;
     this._aoeRange = [];
+    this._subjectAbilityRoll = undefined;
 };
 Game_Action.prototype.combatOpponentsUnit = function (battler) {
     var units = battler.opponentsUnitTS().aliveMembers();
@@ -1653,7 +1655,7 @@ Game_Action.prototype.updateRange = function (item, battler) {
     }
 };
 Game_Action.prototype.extractRangeData = function (object, battler) {
-    const range = object.range;
+    const range = object === null || object === void 0 ? void 0 : object.range;
     if (range) {
         if (typeof range === 'number') {
             return range;
@@ -1810,6 +1812,15 @@ Game_Action.prototype.attackRollModifier = function () {
     return this._modifiers.attackRoll || 0;
 };
 Game_Action.prototype.apply = function (target) {
+    if (this.isAttack()) { // TODO may be obsolete if we rework attack actions
+        this.applyWeaponAttack(target);
+    }
+    else if (this.isSpell()) {
+        this.applySpell();
+    }
+};
+// TODO split magic resolution
+Game_Action.prototype.applyWeaponAttack = function (target) {
     var result = target.result();
     this.subject().clearResult();
     result.clear();
@@ -1824,6 +1835,7 @@ Game_Action.prototype.apply = function (target) {
     //   Get combat characteristic associated with weapon
     const attackerCombatSkill = TEW.COMBAT.getAttackCompOrDefault(attacker, attackerWeapon.group, TEW.COMBAT.isMeleeWeapon(attackerWeapon));
     // TODO Get (best) weapon from defender
+    // TODO ranged attacks must be dodged
     //   Get combat characteristic associated with weapon
     const defenderCombatSkill = TEW.COMBAT.getDefenceCompOrDefault(target, defenderWeapon.group, 0, // TODO cc bonus
     TEW.COMBAT.isMeleeWeapon(defenderWeapon));
@@ -1871,7 +1883,7 @@ Game_Action.prototype.apply = function (target) {
         - target.paramBonus("TOUG" /* Stat.TOUG */);
     // TODO Lookup crit table (help me)
     if (result.isHit) {
-        if (this.item().damage.type > 0) {
+        if (this.item().damage.type > 0) { // TODO remove this logic
             this.executeDamage(target, damage);
         }
         this.item().effects.forEach(function (effect) {
@@ -1879,6 +1891,42 @@ Game_Action.prototype.apply = function (target) {
         }, this);
         this.applyItemUserEffect(target);
     }
+};
+/**
+ * TODO
+ * Apply a spell to an unique target. If multiple targets are needed, this function should be called multiple times with the same spell and different targets.
+ * The attacker only rolls once tho, as the result is stored and retrieved for each supplementary target.
+ */
+Game_Action.prototype.applySpell = function (target) {
+    var result = target.result();
+    this.subject().clearResult();
+    result.clear();
+    const attacker = this.subject();
+    const spell = this.item();
+    /*
+    If Dice roll hasnt been made
+        Roll dice
+        Store result
+    else
+        Retrieve result
+    */
+    // Roll dice
+    if (!this._subjectAbilityRoll) {
+        const womModifier = $gameVariables.getValue(15);
+        this._subjectAbilityRoll = TEW.DICE.skillTest(attacker, 'LANGUAGE_MAGICK', womModifier, false);
+        // Add channelled SL
+        this._subjectAbilityRoll.sl += attacker._channellingLevel;
+        attacker._channellingLevel = 0;
+        // TODO handle criticals
+        // TODO critical failure
+    }
+    // Resolve spell
+    if (this._subjectAbilityRoll.sl >= spell.cn) {
+        // TODO Prompt for spell bonus effects (e.g. additional targets, increased range... etc)
+        // TODO Resolve spell domain effects (e.g. Chamon ignoring metal armor)
+        // TODO apply to target(s)
+    }
+    // GIGA TODO counterspell
 };
 // Calculating damage value
 // Used in auto battle actions
@@ -2256,6 +2304,7 @@ Game_Battler.prototype.onTurnStart = function () {
         this._canAction = true;
         this.event().setStepAnime(true);
     }
+    this.applyConditionsTurnStart();
     this.makeActions();
     this.makeMoves(false);
 };

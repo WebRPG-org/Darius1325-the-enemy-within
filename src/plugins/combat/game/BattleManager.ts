@@ -684,7 +684,8 @@ BattleManager.updateMove = function(forceAttackAfterMove = false) {
             action.applyMove();
             this._subject.nextMove();
         }
-        if (!action || !action.isMove()){
+        if (!action || !action.isMove()) {
+            console.log(action);
             if (forceAttackAfterMove) {
                 // TODO better handling with processAction ?
                 // TODO constant

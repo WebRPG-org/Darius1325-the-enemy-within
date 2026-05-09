@@ -123,6 +123,9 @@ Game_Actor.prototype.initCecile = function() {
 
     // ammo
     this.addAmmo("PEBBLE", 20);
+
+    // conditions
+    this.addCondition("ABLAZE", 3);
 }
 
 // Initialization function for Cheplu

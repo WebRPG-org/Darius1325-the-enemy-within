@@ -72,7 +72,7 @@ Game_Action.prototype.updateRange = function(item, battler: Game_Battler) {
 };
 
 Game_Action.prototype.extractRangeData = function(object, battler: Game_BattlerBase) {
-    const range = object.range;
+    const range = object?.range;
     if (range) {
         if (typeof range === 'number') {
             return range;
