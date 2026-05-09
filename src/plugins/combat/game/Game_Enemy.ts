@@ -33,6 +33,10 @@ Game_Enemy.prototype.indexTs = function() {
     return $gameTroopTs.members().indexOf(this);
 };
 
+Game_Enemy.prototype.allBattlersIndex = function() {
+    return $gameParty.members().length + $gameTroop.members().indexOf(this);
+};
+
 Game_Enemy.prototype.makeMoves = function() {
     Game_Battler.prototype.makeMoves.call(this);
 };

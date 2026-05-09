@@ -694,6 +694,7 @@ Scene_Battle.prototype.commandSpell = function() {
 
     this._windowSpellList.open();
     this._windowSpellList.activate();
+    this._windowSpellList.select(0); // TODO keep previous spell selection ? Last selected spell is stored in actor data
     this._windowSpellList.show();
 
     this._windowSpellDetails.open();

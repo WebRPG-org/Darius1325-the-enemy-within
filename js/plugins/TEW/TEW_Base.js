@@ -133,7 +133,7 @@ TEW.DICE.bonus = function (value) {
     return Math.floor(value / 10);
 };
 TEW.DICE.roll = function (range = 100) {
-    return Math.floor(Math.random() * (range - 1)) + 1;
+    return Math.floor(Math.random() * range) + 1;
 };
 TEW.DICE.displayDiceRoll = function (range = 100) {
     const result = TEW.DICE.roll(range);
@@ -238,24 +238,20 @@ Game_Interpreter.prototype.opposedSkillTest = function (compIdPlayer, modifierPl
         slNPC = slNPC > 0 ? slNPC : 0;
     }
     else if (rollNPC >= 96) {
-        successRollNpc = true;
+        successRollNpc = false;
         slNPC = slNPC < 0 ? slNPC : 0;
     }
     let criticalPlayer = rollPlayer % 11 === 0 || rollPlayer === 100;
     let criticalNPC = rollNPC % 11 === 0 || rollNPC === 100;
     let success;
-    // GIGA TODO nothing is right
-    if (successRollPlayer && criticalPlayer) {
+    // if Player succeed && it's SL is greater than the NPC SL, player wins
+    if (slPlayer > slNPC && successRollPlayer) {
         success = true;
+        // else if SL Player is less than SL NPC or if player misses, player fails
     }
-    else if (successRollNpc && criticalNPC) {
+    else if (slPlayer < slNPC || !successRollPlayer) {
         success = false;
-    }
-    else if (successRollPlayer && slPlayer > slNPC) {
-        success = true;
-    }
-    else if (slNPC > slPlayer) {
-        success = false;
+        // else draw
     }
     else {
         success = (maxPartySkill >= skillValueNPC);

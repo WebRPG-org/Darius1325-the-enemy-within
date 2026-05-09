@@ -39,6 +39,10 @@ Game_Actor.prototype.indexTs = function() {
     return $gamePartyTs.members().indexOf(this);
 };
 
+Game_Actor.prototype.allBattlersIndex = function() {
+    return $gameParty.members().indexOf(this);
+};
+
 Game_Actor.prototype.friendsUnitTS = function() {
     return $gamePartyTs;
 };

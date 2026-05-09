@@ -9,7 +9,7 @@
 // Imports
 // ----------------------
 
-import { Stat } from "enum";
+import { Stat } from "./enum";
 
 /**
  * Competence object type

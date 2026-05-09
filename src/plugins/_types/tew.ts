@@ -28,6 +28,7 @@ import { Glossary } from "./glossary";
 import { Tutorial } from "./tutorial";
 import { CharacterDescription } from "./characterDescription";
 import { JournalDocument } from "./journalDocument";
+import { Critical } from "./critical";
 
 /** Storage object for all TEW plugins */
 const TEW: {
@@ -123,6 +124,19 @@ const TEW: {
             TROOPS?: Record<string, Troop>;
 
             AI?: Record<string, BattlerAI>;
+        };
+
+        WEAPON_CRITICALS?: {
+            HEAD?: Critical[];
+            BODY?: Critical[];
+            ARMS?: Critical[];
+            LEGS?: Critical[];
+        };
+
+        MAGIC_CRITICALS?: {
+            MINOR?: Critical[];
+            MAJOR?: Critical[];
+            PRAYER?: Critical[];
         };
 
         /** Quest progression, displayed in quest log and controlled by $gameVariables:

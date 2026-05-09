@@ -319,7 +319,10 @@ Game_Selector.prototype.selectTarget = function(action) {
     if (this.isOk()) {
         if ($gameMap.isOnTiles(this.x, this.y) && action.isTargetValid(selectedBattler)) {
             SoundManager.playOk();
-            return selectedBattler.index();
+            console.log("Selector - Target", selectedBattler);
+            console.log("game party", $gameParty, $gameParty.members().includes(selectedBattler));
+            console.log("index", selectedBattler.allBattlersIndex());
+            return selectedBattler.allBattlersIndex();
         } else {
             SoundManager.playBuzzer();
         }

@@ -431,6 +431,7 @@ BattleManager.startNewTurn = function() {
     this._battlePhase = BattlePhase.Start;
 }
 
+// TODO
 BattleManager.updateExplore = function() {
     this.refreshSubject();
     if ($gameSelector.isMoving()) {
@@ -457,7 +458,7 @@ BattleManager.selectActor = function(actor: Game_Actor) {
     this._subject = actor;
     this._subject.performSelect();
     this._subject.savePosition();
-    // $gameParty.setupTactics([this._subject]);
+    $gameParty.setupTactics([this._subject]);
     this._battlePhase = BattlePhase.InputCommand;
 };
 
@@ -593,21 +594,8 @@ BattleManager.refreshTarget = function() {
     var select = $gameSelector.select();
     if (select && select.isAlive()) {
         this._subject.turnTowardCharacter(select);
-        this.refreshInfo();
     } else {
         this._enemyWindow.close();
-        this._infoWindow.close();
-    }
-};
-
-// TODO
-BattleManager.refreshInfo = function() {
-    var select = $gameSelector.select();
-    this.refreshEnemyWindow(select);
-    var action = this.inputtingAction();
-    if (action.isTargetValid(select)) {
-        this._infoWindow.open(select);
-    } else {
         this._infoWindow.close();
     }
 };
@@ -719,6 +707,7 @@ BattleManager.updateMove = function(forceAttackAfterMove = false) {
 };
 
 BattleManager.setupAction = function() {
+    console.log("BattleManager - setup action");
     $gameTemp.setCancel(false);
     this._action = this._subject.currentAction();
     if (this._action && this._action.isValid()) {
@@ -732,17 +721,19 @@ BattleManager.setupAction = function() {
 };
 
 BattleManager.setupTarget = function() {
-    this.setupCombat(this._action);
+    console.log("BattleManager - setup target");
+    this.setupCombat(this._action); // TODO duplicate? Already called when highlighting tiles
     var targets = this._action.makeTargets();
-    var gameFriends = this._action.friendsUnit();
-    var gameOpponents = this._action.opponentsUnit();
-    if (this._action.isForFriend()) {
-        gameFriends.setupTactics([this._subject].concat(targets));
-        gameOpponents.setupTactics([]);
-    } else {
-        gameFriends.setupTactics([this._subject]);
-        gameOpponents.setupTactics(targets);
-    }
+    // TODO is this duplicate code?
+    // var gameFriends = this._action.friendsUnit();
+    // var gameOpponents = this._action.opponentsUnit();
+    // if (this._action.isForFriend()) {
+    //     gameFriends.setupTactics([this._subject].concat(targets));
+    //     gameOpponents.setupTactics([]);
+    // } else {
+    //     gameFriends.setupTactics([this._subject]);
+    //     gameOpponents.setupTactics(targets);
+    // }
     this._targetIndex = -1;
     this._targets = targets;
     this.setDirectionTargets();
@@ -807,6 +798,9 @@ BattleManager.startAction = function() {
 BattleManager.updateAction = function() {
     this._targetIndex++;
     var target = this._targets[this._targetIndex];
+    console.log("BattleManager - update action");
+    console.log("Target index", this._targetIndex);
+    console.log("Targets", this._targets);
     if (target) {
         this.turnTowardCharacter(target);
         $gameSelector.performTransfer(target.x, target.y);
@@ -837,6 +831,7 @@ BattleManager.nextAction = function() {
 
 BattleManager.invokeAction = function(subject, target) {
     this._logWindow.push('pushBaseLine');
+    // TODO useless cases
     if (Math.random() < this._action.itemCnt(target)) {
         this.invokeCounterAttack(subject, target);
     } else if (Math.random() < this._action.itemMrf(target)) {
@@ -904,6 +899,10 @@ BattleManager.endEnemyPhase = function() {
     $gameMap.clearTiles();
 };
 
+// TODO $gamePartyTs & $gameTroopTs contain all battlers
+// $gameParty & $gameTroop have been modified to store battlers involved by a single action
+// so they change everytime an action is selected (TODO every frame? *vomits*)
+// In the example of a melee attack, $gameParty would contain the active battler and $gameTroop all adjacent opponents
 BattleManager.setupCombat = function(action) {
     var gameFriends = action.friendsUnit();
     gameFriends.setupTactics(action.combatFriendsUnit(this._subject));

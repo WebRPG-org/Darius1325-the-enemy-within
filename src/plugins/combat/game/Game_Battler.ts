@@ -169,44 +169,6 @@ Game_Battler.prototype.doChannelling = function() {
     }
 };
 
-Game_Battler.prototype.isItemRangeValid = function(item) {
-    if (!item) {
-        return false;
-    } else if (DataManager.isSkill(item)) {
-        return this.isSkillRangeOk(item);
-    } else if (DataManager.isItem(item)) {
-        return this.isItemRangeOk(item);
-    } else {
-        return false;
-    }
-};
-
-Game_Battler.prototype.isSkillRangeOk = function(item) {
-    var action = new Game_Action(this);
-    action.setSkill(item.id);
-    if (this.isConfused()) {
-        return this.isConfusedRangeOk(action);
-    } if (action.isForOpponent()) {
-        return action.combatOpponentsUnit(this).length > 0;
-    }
-    if (action.isForFriend()) {
-        return action.combatFriendsUnit(this).length > 0;
-    }
-    return false;
-};
-
-Game_Battler.prototype.isItemRangeOk = function(item) {
-    var action = new Game_Action(this);
-    action.setItem(item.id);
-    if (action.isForOpponent()) {
-        return action.combatOpponentsUnit(this).length > 0;
-    }
-    if (action.isForFriend()) {
-        return action.combatFriendsUnit(this).length > 0;
-    }
-    return false;
-};
-
 Game_Battler.prototype.nextAction = function() {
     this._actionIndex++;
     if (this._actionIndex < this.numActions()) {

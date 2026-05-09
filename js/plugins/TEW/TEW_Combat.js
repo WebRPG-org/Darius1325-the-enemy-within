@@ -941,6 +941,7 @@ BattleManager.startNewTurn = function () {
     // this.refreshMoveTiles(); // SHT
     this._battlePhase = BattlePhase.Start;
 };
+// TODO
 BattleManager.updateExplore = function () {
     this.refreshSubject();
     if ($gameSelector.isMoving()) {
@@ -966,7 +967,7 @@ BattleManager.selectActor = function (actor) {
     this._subject = actor;
     this._subject.performSelect();
     this._subject.savePosition();
-    // $gameParty.setupTactics([this._subject]);
+    $gameParty.setupTactics([this._subject]);
     this._battlePhase = BattlePhase.InputCommand;
 };
 BattleManager.updateSelect = function () {
@@ -1090,21 +1091,9 @@ BattleManager.refreshTarget = function () {
     var select = $gameSelector.select();
     if (select && select.isAlive()) {
         this._subject.turnTowardCharacter(select);
-        this.refreshInfo();
     }
     else {
         this._enemyWindow.close();
-        this._infoWindow.close();
-    }
-};
-BattleManager.refreshInfo = function () {
-    var select = $gameSelector.select();
-    this.refreshEnemyWindow(select);
-    var action = this.inputtingAction();
-    if (action.isTargetValid(select)) {
-        this._infoWindow.open(select);
-    }
-    else {
         this._infoWindow.close();
     }
 };
@@ -1209,6 +1198,7 @@ BattleManager.updateMove = function (forceAttackAfterMove = false) {
     }
 };
 BattleManager.setupAction = function () {
+    console.log("BattleManager - setup action");
     $gameTemp.setCancel(false);
     this._action = this._subject.currentAction();
     if (this._action && this._action.isValid()) {
@@ -1221,18 +1211,19 @@ BattleManager.setupAction = function () {
     this._infoWindow.close();
 };
 BattleManager.setupTarget = function () {
-    this.setupCombat(this._action);
+    console.log("BattleManager - setup target");
+    this.setupCombat(this._action); // TODO duplicate? Already called when highlighting tiles
     var targets = this._action.makeTargets();
-    var gameFriends = this._action.friendsUnit();
-    var gameOpponents = this._action.opponentsUnit();
-    if (this._action.isForFriend()) {
-        gameFriends.setupTactics([this._subject].concat(targets));
-        gameOpponents.setupTactics([]);
-    }
-    else {
-        gameFriends.setupTactics([this._subject]);
-        gameOpponents.setupTactics(targets);
-    }
+    // TODO is this duplicate code?
+    // var gameFriends = this._action.friendsUnit();
+    // var gameOpponents = this._action.opponentsUnit();
+    // if (this._action.isForFriend()) {
+    //     gameFriends.setupTactics([this._subject].concat(targets));
+    //     gameOpponents.setupTactics([]);
+    // } else {
+    //     gameFriends.setupTactics([this._subject]);
+    //     gameOpponents.setupTactics(targets);
+    // }
     this._targetIndex = -1;
     this._targets = targets;
     this.setDirectionTargets();
@@ -1293,6 +1284,9 @@ BattleManager.startAction = function () {
 BattleManager.updateAction = function () {
     this._targetIndex++;
     var target = this._targets[this._targetIndex];
+    console.log("BattleManager - update action");
+    console.log("Target index", this._targetIndex);
+    console.log("Targets", this._targets);
     if (target) {
         this.turnTowardCharacter(target);
         $gameSelector.performTransfer(target.x, target.y);
@@ -1322,6 +1316,7 @@ BattleManager.nextAction = function () {
 };
 BattleManager.invokeAction = function (subject, target) {
     this._logWindow.push('pushBaseLine');
+    // TODO useless cases
     if (Math.random() < this._action.itemCnt(target)) {
         this.invokeCounterAttack(subject, target);
     }
@@ -1382,6 +1377,10 @@ BattleManager.endEnemyPhase = function () {
     $gameSelector.setTransparent(false);
     $gameMap.clearTiles();
 };
+// TODO $gamePartyTs & $gameTroopTs contain all battlers
+// $gameParty & $gameTroop have been modified to store battlers involved by a single action
+// so they change everytime an action is selected (TODO every frame? *vomits*)
+// In the example of a melee attack, $gameParty would contain the active battler and $gameTroop all adjacent opponents
 BattleManager.setupCombat = function (action) {
     var gameFriends = action.friendsUnit();
     gameFriends.setupTactics(action.combatFriendsUnit(this._subject));
@@ -1614,11 +1613,7 @@ Game_Action.prototype.combatOpponentsUnit = function (battler) {
 };
 Game_Action.prototype.combatFriendsUnit = function (battler) {
     var friends = battler.friendsUnitTS().aliveMembers();
-    var battlers = [battler]; // first since the user keeps the same index !
-    if (this.isForFriend()) {
-        battlers = battlers.concat(this.searchBattlers(battler, friends));
-    }
-    return battlers;
+    return [battler].concat(this.searchBattlers(battler, friends));
 };
 Game_Action.prototype.searchBattlers = function (battler, units) {
     var battlers = [];
@@ -1636,6 +1631,7 @@ Game_Action.prototype.searchBattlers = function (battler, units) {
         var x = redCell[0];
         var y = redCell[1];
         for (var j = 0; j < units.length; j++) {
+            // TODO unnecessary check in O(n²) here, we should be able to push the active battler here
             if (units[j].pos(x, y) && units[j] !== battler) {
                 battlers.push(units[j]);
             }
@@ -1648,7 +1644,6 @@ Game_Action.prototype.isAttackRange = function (subject) {
 };
 Game_Action.prototype.updateRange = function (item, battler) {
     const range = this.extractRangeData(item, battler);
-    console.log(range);
     // TODO better algorithm for obstacles
     if (range === 0 || this.isForUser()) {
         this._range = [[battler.tx, battler.ty]];
@@ -1678,7 +1673,6 @@ Game_Action.prototype.extractRangeData = function (object, battler) {
 };
 Game_Action.prototype.updateAoeRange = function (item, battler) {
     const aoe = this.extractAoeData(item, battler);
-    console.log(aoe);
     if (aoe !== 0) {
         this._aoeRange = this.createRange(0, aoe, $gameSelector._x, $gameSelector._y, aoe === 1 ? 'diamond' : 'euclidean');
         this._aoeRange.push([$gameSelector._x, $gameSelector._y]);
@@ -1780,12 +1774,7 @@ Game_Action.prototype.applyMove = function () {
     event.processMoveCommand(command);
 };
 Game_Action.prototype.isTargetValid = function (battler) {
-    if (this.isForOpponent()) {
-        return battler && !battler.isActor();
-    }
-    else {
-        return battler && battler.isActor();
-    }
+    return !!battler;
 };
 Game_Action.prototype.isMove = function () {
     return this._moveRoute !== 0;
@@ -1914,6 +1903,97 @@ Game_Action.prototype.makeDamageValue = function (target, critical) {
     value = Math.round(value);
     return value;
 };
+Game_Action.prototype.makeTargets = function () {
+    const targets = [];
+    const aliveBattlersInRange = $gameParty.aliveMembers().concat($gameTroop.aliveMembers());
+    // TODO self-targetting
+    // TODO multi-targetting?
+    // Special case for AOE attacks: user is a valid target and targets can be outside of attack range
+    if (this._aoeRange.length > 0) {
+        this._aoeRange.forEach((tile) => {
+            const x = tile[0];
+            const y = tile[1];
+            for (let battler of aliveBattlersInRange) {
+                if (battler.pos(x, y)) {
+                    targets.push(battler);
+                    break;
+                }
+            }
+        });
+    }
+    else { // Single target
+        targets.push(aliveBattlersInRange[Math.max(this._targetIndex, 0)]);
+    }
+    return targets;
+    // return this.repeatTargets(targets); // useless?
+};
+Game_Action.prototype.targetsForOpponents = function () {
+    console.log("Game_Action - targetsForOpponents");
+    var targets = [];
+    var unit = this.opponentsUnit();
+    if (this.isForRandom()) {
+        console.log("isForRandom");
+        for (var i = 0; i < this.numTargets(); i++) {
+            targets.push(unit.randomTarget());
+        }
+    }
+    else if (this.isForOne()) {
+        console.log("isForOne");
+        if (this._targetIndex < 0) {
+            targets.push(unit.randomTarget());
+        }
+        else {
+            targets.push(unit.smoothTarget(this._targetIndex));
+        }
+    }
+    else {
+        console.log("else, as always");
+        targets = unit.aliveMembers();
+    }
+    console.log("Targets", targets);
+    return targets;
+};
+Game_Action.prototype.targetsForFriends = function () {
+    console.log("Game_Action - targetsForFriends");
+    var targets = [];
+    var unit = this.friendsUnit();
+    if (this.isForUser()) {
+        console.log("isForUser");
+        return [this.subject()];
+    }
+    else if (this.isForDeadFriend()) {
+        console.log("isForDeadFriend");
+        if (this.isForOne()) {
+            targets.push(unit.smoothDeadTarget(this._targetIndex));
+        }
+        else {
+            targets = unit.deadMembers();
+        }
+    }
+    else if (this.isForOne()) {
+        console.log("isForOne");
+        if (this._targetIndex < 0) {
+            targets.push(unit.randomTarget());
+        }
+        else {
+            targets.push(unit.smoothTarget(this._targetIndex));
+        }
+    }
+    else {
+        console.log("else, as always");
+        targets = unit.aliveMembers();
+    }
+    console.log("Targets", targets);
+    return targets;
+};
+// TODO unused for now but interesting
+Game_Action.prototype.applyGlobal = function () {
+    // this.item().effects.forEach(function(effect) {
+    //     if (effect.code === Game_Action.EFFECT_COMMON_EVENT) {
+    //         $gameTemp.reserveCommonEvent(effect.dataId);
+    //     }
+    // }, this);
+};
 // #endregion =========================== Game_Action ============================== //
 // ============================== //
 // #region ============================== Game_Actor ============================== //
@@ -1941,6 +2021,9 @@ Game_Actor.prototype.currentBattler = function () {
 };
 Game_Actor.prototype.indexTs = function () {
     return $gamePartyTs.members().indexOf(this);
+};
+Game_Actor.prototype.allBattlersIndex = function () {
+    return $gameParty.members().indexOf(this);
 };
 Game_Actor.prototype.friendsUnitTS = function () {
     return $gamePartyTs;
@@ -2224,45 +2307,6 @@ Game_Battler.prototype.doChannelling = function () {
         $gameMessage.add("You lost " + String(previousChannellingLevel - this._channellingLevel) + " channelling levels.");
     }
 };
-Game_Battler.prototype.isItemRangeValid = function (item) {
-    if (!item) {
-        return false;
-    }
-    else if (DataManager.isSkill(item)) {
-        return this.isSkillRangeOk(item);
-    }
-    else if (DataManager.isItem(item)) {
-        return this.isItemRangeOk(item);
-    }
-    else {
-        return false;
-    }
-};
-Game_Battler.prototype.isSkillRangeOk = function (item) {
-    var action = new Game_Action(this);
-    action.setSkill(item.id);
-    if (this.isConfused()) {
-        return this.isConfusedRangeOk(action);
-    }
-    if (action.isForOpponent()) {
-        return action.combatOpponentsUnit(this).length > 0;
-    }
-    if (action.isForFriend()) {
-        return action.combatFriendsUnit(this).length > 0;
-    }
-    return false;
-};
-Game_Battler.prototype.isItemRangeOk = function (item) {
-    var action = new Game_Action(this);
-    action.setItem(item.id);
-    if (action.isForOpponent()) {
-        return action.combatOpponentsUnit(this).length > 0;
-    }
-    if (action.isForFriend()) {
-        return action.combatFriendsUnit(this).length > 0;
-    }
-    return false;
-};
 Game_Battler.prototype.nextAction = function () {
     this._actionIndex++;
     if (this._actionIndex < this.numActions()) {
@@ -2478,14 +2522,8 @@ Game_BattlerBase.prototype.noteTraits = function (obj) {
 // Game_BattlerBase.prototype.allTraits = function() {
 //     return TEW.MEMORY.gameBattlerBaseAllTraits.call(this).concat(this.tparamTraits());
 // };
-TEW.MEMORY.gameBattlerBaseCanUse = Game_BattlerBase.prototype.canUse;
-Game_BattlerBase.prototype.canUse = function (item) {
-    if ($gamePartyTs.inBattle()) {
-        if (!this.isItemRangeValid(item)) {
-            return false;
-        }
-    }
-    return TEW.MEMORY.gameBattlerBaseCanUse.call(this, item);
+Game_BattlerBase.prototype.canUse = function () {
+    return true; // let's keep it simple.
 };
 Game_BattlerBase.prototype.isOccasionOk = function (item) {
     if ($gameParty.inBattle() || $gamePartyTs.inBattle()) {
@@ -2563,6 +2601,9 @@ Game_Enemy.prototype.opponentsUnitTS = function () {
 };
 Game_Enemy.prototype.indexTs = function () {
     return $gameTroopTs.members().indexOf(this);
+};
+Game_Enemy.prototype.allBattlersIndex = function () {
+    return $gameParty.members().length + $gameTroop.members().indexOf(this);
 };
 Game_Enemy.prototype.makeMoves = function () {
     Game_Battler.prototype.makeMoves.call(this);
@@ -3715,7 +3756,10 @@ Game_Selector.prototype.selectTarget = function (action) {
     if (this.isOk()) {
         if ($gameMap.isOnTiles(this.x, this.y) && action.isTargetValid(selectedBattler)) {
             SoundManager.playOk();
-            return selectedBattler.index();
+            console.log("Selector - Target", selectedBattler);
+            console.log("game party", $gameParty, $gameParty.members().includes(selectedBattler));
+            console.log("index", selectedBattler.allBattlersIndex());
+            return selectedBattler.allBattlersIndex();
         }
         else {
             SoundManager.playBuzzer();
@@ -5085,6 +5129,7 @@ Scene_Battle.prototype.commandSpell = function () {
     this._actionCommandWindow.deactivate();
     this._windowSpellList.open();
     this._windowSpellList.activate();
+    this._windowSpellList.select(0); // TODO keep previous spell selection ? Last selected spell is stored in actor data
     this._windowSpellList.show();
     this._windowSpellDetails.open();
     this._windowSpellDetails.activate();

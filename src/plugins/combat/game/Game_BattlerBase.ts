@@ -54,14 +54,8 @@ Game_BattlerBase.prototype.noteTraits = function(obj) {
 //     return TEW.MEMORY.gameBattlerBaseAllTraits.call(this).concat(this.tparamTraits());
 // };
 
-TEW.MEMORY.gameBattlerBaseCanUse = Game_BattlerBase.prototype.canUse;
-Game_BattlerBase.prototype.canUse = function(item) {
-    if ($gamePartyTs.inBattle()) {
-        if (!this.isItemRangeValid(item)) {
-            return false;
-        }
-    }
-    return TEW.MEMORY.gameBattlerBaseCanUse.call(this, item);
+Game_BattlerBase.prototype.canUse = function() {
+    return true; // let's keep it simple.
 };
 
 Game_BattlerBase.prototype.isOccasionOk = function(item) {

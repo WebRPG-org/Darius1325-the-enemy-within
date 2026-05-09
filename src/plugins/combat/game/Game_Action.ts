@@ -1,6 +1,7 @@
 // $PluginCompiler TEW_Combat.js
 
 import { SpellRange, SpellTarget, SpellTargetRadius, Stat } from "../../_types/enum";
+import { Spell } from "../../_types/spell";
 import TEW from "../../_types/tew";
 import { Game_BattlerBase } from "../../base/stats/Game_BattlerBase";
 import Game_Battler from "./Game_Battler";
@@ -18,6 +19,8 @@ Game_Action.prototype.initialize = function(subject, forcing, modifiers = {}) {
     this._moveRoute = 0;
     this._modifiers = modifiers;
     this._aoeRange = [];
+
+    this._subjectAbilityRoll = undefined;
 };
 
 Game_Action.prototype.combatOpponentsUnit = function(battler) {
@@ -27,11 +30,7 @@ Game_Action.prototype.combatOpponentsUnit = function(battler) {
 
 Game_Action.prototype.combatFriendsUnit = function(battler) {
     var friends = battler.friendsUnitTS().aliveMembers();
-    var battlers = [battler]; // first since the user keeps the same index !
-    if (this.isForFriend()) {
-        battlers = battlers.concat(this.searchBattlers(battler, friends));
-    }
-    return battlers;
+    return [battler].concat(this.searchBattlers(battler, friends));
 };
 
 Game_Action.prototype.searchBattlers = function(battler, units) {
@@ -49,6 +48,7 @@ Game_Action.prototype.searchBattlers = function(battler, units) {
         var x = redCell[0];
         var y = redCell[1];
         for (var j = 0; j < units.length; j++) {
+            // TODO unnecessary check in O(n²) here, we should be able to push the active battler here
             if (units[j].pos(x, y) && units[j] !== battler) {
                 battlers.push(units[j]);
             }
@@ -63,7 +63,6 @@ Game_Action.prototype.isAttackRange = function (subject) {
 
 Game_Action.prototype.updateRange = function(item, battler: Game_Battler) {
     const range = this.extractRangeData(item, battler);
-    console.log(range);
     // TODO better algorithm for obstacles
     if (range === 0 || this.isForUser()) {
         this._range = [[battler.tx, battler.ty]];
@@ -93,7 +92,6 @@ Game_Action.prototype.extractRangeData = function(object, battler: Game_BattlerB
 
 Game_Action.prototype.updateAoeRange = function(item, battler: Game_Battler) {
     const aoe = this.extractAoeData(item, battler);
-    console.log(aoe);
     if (aoe !== 0) {
         this._aoeRange = this.createRange(0, aoe, $gameSelector._x, $gameSelector._y, aoe === 1 ? 'diamond' : 'euclidean');
         this._aoeRange.push([$gameSelector._x, $gameSelector._y]);
@@ -207,11 +205,7 @@ Game_Action.prototype.applyMove = function() {
 };
 
 Game_Action.prototype.isTargetValid = function(battler) {
-    if (this.isForOpponent()) {
-        return battler && !battler.isActor();
-    } else {
-        return battler && battler.isActor();
-    }
+    return !!battler;
 };
 
 Game_Action.prototype.isMove = function() {
@@ -254,6 +248,15 @@ Game_Action.prototype.attackRollModifier = function() {
 };
 
 Game_Action.prototype.apply = function(target) {
+    if (this.isAttack()) { // TODO may be obsolete if we rework attack actions
+        this.applyWeaponAttack(target);
+    } else if (this.isSpell()) {
+        this.applySpell();
+    }
+};
+
+// TODO split magic resolution
+Game_Action.prototype.applyWeaponAttack = function(target) {
     var result = target.result();
     this.subject().clearResult();
     result.clear();
@@ -276,6 +279,7 @@ Game_Action.prototype.apply = function(target) {
     );
 
     // TODO Get (best) weapon from defender
+    // TODO ranged attacks must be dodged
     //   Get combat characteristic associated with weapon
     const defenderCombatSkill = TEW.COMBAT.getDefenceCompOrDefault(
         target,
@@ -341,7 +345,7 @@ Game_Action.prototype.apply = function(target) {
     // TODO Lookup crit table (help me)
 
     if (result.isHit) {
-        if (this.item().damage.type > 0) {
+        if (this.item().damage.type > 0) { // TODO remove this logic
             this.executeDamage(target, damage);
         }
         this.item().effects.forEach(function(effect) {
@@ -349,6 +353,52 @@ Game_Action.prototype.apply = function(target) {
         }, this);
         this.applyItemUserEffect(target);
     }
+};
+
+/**
+ * TODO
+ * Apply a spell to an unique target. If multiple targets are needed, this function should be called multiple times with the same spell and different targets.
+ * The attacker only rolls once tho, as the result is stored and retrieved for each supplementary target.
+ */
+Game_Action.prototype.applySpell = function(target) {
+    var result = target.result();
+    this.subject().clearResult();
+    result.clear();
+    
+    const attacker = this.subject();
+    const spell: Spell = this.item();
+    
+    /*
+    If Dice roll hasnt been made
+        Roll dice
+        Store result
+    else
+        Retrieve result
+    */
+
+    // Roll dice
+    if (!this._subjectAbilityRoll) {
+        const womModifier = $gameVariables.getValue(15);
+        this._subjectAbilityRoll = TEW.DICE.skillTest(attacker, 'LANGUAGE_MAGICK', womModifier, false);
+        
+        // Add channelled SL
+        this._subjectAbilityRoll.sl += attacker._channellingLevel;
+        attacker._channellingLevel = 0;
+
+        // TODO handle criticals
+        
+        // TODO critical failure
+    }
+
+    // Resolve spell
+    if (this._subjectAbilityRoll.sl >= spell.cn) {
+        // TODO Prompt for spell bonus effects (e.g. additional targets, increased range... etc)
+
+        // TODO Resolve spell domain effects (e.g. Chamon ignoring metal armor)
+
+        // TODO apply to target(s)
+    }
+    // GIGA TODO counterspell
 };
 
 // Calculating damage value
@@ -373,4 +423,93 @@ Game_Action.prototype.makeDamageValue = function(target, critical) {
     value = this.applyGuard(value, target);
     value = Math.round(value);
     return value;
+};
+
+Game_Action.prototype.makeTargets = function() {
+    const targets = [];
+    const aliveBattlersInRange = $gameParty.aliveMembers().concat($gameTroop.aliveMembers());
+
+    // TODO self-targetting
+    // TODO multi-targetting?
+
+    // Special case for AOE attacks: user is a valid target and targets can be outside of attack range
+    if (this._aoeRange.length > 0) {
+        this._aoeRange.forEach((tile: [number, number]) => {
+            const x = tile[0];
+            const y = tile[1];
+            for (let battler of aliveBattlersInRange) {
+                if (battler.pos(x, y)) {
+                    targets.push(battler);
+                    break;
+                }
+            }
+        });
+    } else { // Single target
+        targets.push(aliveBattlersInRange[Math.max(this._targetIndex, 0)]);
+    }
+
+    return targets;
+    // return this.repeatTargets(targets); // useless?
+};
+
+Game_Action.prototype.targetsForOpponents = function() {
+    console.log("Game_Action - targetsForOpponents");
+    var targets = [];
+    var unit = this.opponentsUnit();
+    if (this.isForRandom()) {
+        console.log("isForRandom");
+        for (var i = 0; i < this.numTargets(); i++) {
+            targets.push(unit.randomTarget());
+        }
+    } else if (this.isForOne()) {
+        console.log("isForOne");
+        if (this._targetIndex < 0) {
+            targets.push(unit.randomTarget());
+        } else {
+            targets.push(unit.smoothTarget(this._targetIndex));
+        }
+    } else {
+        console.log("else, as always");
+        targets = unit.aliveMembers();
+    }
+    console.log("Targets", targets);
+    return targets;
+};
+
+Game_Action.prototype.targetsForFriends = function() {
+    console.log("Game_Action - targetsForFriends");
+    var targets = [];
+    var unit = this.friendsUnit();
+    if (this.isForUser()) {
+        console.log("isForUser");
+        return [this.subject()];
+    } else if (this.isForDeadFriend()) {
+        console.log("isForDeadFriend");
+        if (this.isForOne()) {
+            targets.push(unit.smoothDeadTarget(this._targetIndex));
+        } else {
+            targets = unit.deadMembers();
+        }
+    } else if (this.isForOne()) {
+        console.log("isForOne");
+        if (this._targetIndex < 0) {
+            targets.push(unit.randomTarget());
+        } else {
+            targets.push(unit.smoothTarget(this._targetIndex));
+        }
+    } else {
+        console.log("else, as always");
+        targets = unit.aliveMembers();
+    }
+    console.log("Targets", targets);
+    return targets;
+};
+
+// TODO unused for now but interesting
+Game_Action.prototype.applyGlobal = function() {
+    // this.item().effects.forEach(function(effect) {
+    //     if (effect.code === Game_Action.EFFECT_COMMON_EVENT) {
+    //         $gameTemp.reserveCommonEvent(effect.dataId);
+    //     }
+    // }, this);
 };

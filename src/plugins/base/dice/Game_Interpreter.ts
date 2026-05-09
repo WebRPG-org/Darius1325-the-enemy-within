@@ -3,7 +3,6 @@
 import TEW from "../../_types/tew";
 import Window_Dice from "./Window_Dice";
 import { Game_BattlerBase } from "../stats/Game_BattlerBase";
-import TEW from "../../_types/tew";
 
 // $StartCompilation
 
