@@ -50,31 +50,38 @@ export enum BattlePhase {
 //
 // The static class that manages tactics progress.
 
-// One action and one movement per turn unless advantages / specific talents are used
-// Action can be used as a second movement
-BattleManager.actionCount = 1;
-BattleManager.moveCount = 1;
-
-// Advantages accumulated by winning combat rounds or using the Observe action
-// Common pool for all actors that can be spent to get better rolls or extra actions
-BattleManager.partyAdvantages = 0;
-
 BattleManager.moveMultiplier = 1; // 0 to switch weapons, 1 for walking, 2 for running, ? for charging
 
 BattleManager.canMove = function() {
-    return this.actionCount > 0 || this.moveCount > 0;
+    return this._subject && this._subject._moveCount > 0;
 }
 
 BattleManager.canRun = function() {
-    return this.actionCount > 0 && this.moveCount > 0;
+    return this._subject && (this._subject._actionCount > 0 && this._subject._moveCount > 0);
 }
 
 BattleManager.canAct = function() {
-    return this.actionCount > 0;
+    return this._subject && this._subject._actionCount > 0;
+}
+
+BattleManager.canActOrMove = function() {
+    return this._subject && (this._subject._actionCount > 0 || this._subject._moveCount > 0);
 }
 
 BattleManager.canInput = function() {
-    return this.actionCount > 0 || this.moveCount > 0 || this.partyAdvantages > 3;
+    return this._subject && (this._subject._actionCount > 0 || this._subject._moveCount > 0 || $gamePartyTs._advantages > 3);
+}
+
+BattleManager.spendMove = function() {
+    if (this._subject) {
+        this._subject._moveCount -= 1;
+    }
+}
+
+BattleManager.spendAction = function() {
+    if (this._subject) {
+        this._subject._actionCount -= 1;
+    }
 }
 
 BattleManager.setup = function(troopId: number, canEscape: boolean, canLose: boolean) {
@@ -494,8 +501,8 @@ BattleManager.updateChargeTarget = function() {
     action.setAttack();
     if ($gameSelector.selectTarget(action) >= 0) { // -1 if invalid target
         SoundManager.playOk();
-        BattleManager.moveCount -= 1;
-        BattleManager.actionCount -= 1;
+        BattleManager.spendMove();
+        BattleManager.spendAction();
 
         // TODO constant
         // TODO handle crit fail?
@@ -544,7 +551,7 @@ BattleManager.updateTarget = function() {
     if (index >= 0) {
         action.setTarget(index);
         this.setupAction();
-    } else if ($gameSelector.isOk()) {
+    } else if ($gameSelector.isOk() && action.isInRange($gameSelector.x, $gameSelector.y)) {
         // TODO hit the void
         this.endAction();
     }
@@ -618,9 +625,6 @@ BattleManager.updateStart = function() {
     } else {
         this._currentBattler = this._currentTurnOrder.shift();
         this._battlerIndex = this._currentBattler.battlerIndex;
-
-        this.moveCount = 1;
-        this.actionCount = 1;
 
         this._subject = this.battler();
         if (this._subject.isAlive()) {
@@ -722,7 +726,6 @@ BattleManager.setupAction = function() {
 };
 
 BattleManager.setupTarget = function() {
-    console.log("BattleManager - setup target");
     this.setupCombat(this._action); // TODO duplicate? Already called when highlighting tiles
     var targets = this._action.makeTargets();
     // TODO is this duplicate code?

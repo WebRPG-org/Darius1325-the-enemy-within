@@ -12,6 +12,7 @@
 // Imports
 // ----------------------
 
+import { ConditionId, ConditionRemoval } from "../_types/enum";
 import TEW from "../_types/tew";
 
 // ----------------------
@@ -27,14 +28,16 @@ TEW.DATABASE.CONDITIONS = {
     // Peut se retirer en dépensant son Action (test d'Athlétisme TN 0).
     // ---------------------------------------------------------------------------
     ABLAZE: {
-        id: "ABLAZE",
+        id: ConditionId.ABLAZE,
         name: "Ablaze",
         message: "burned",
         description: "You are on fire! You suffer 1 Wound per stack at the start of your turn, ignoring Armour Points. You may spend your Action to attempt an Athletics Test (SL 0) to extinguish the flames.",
         maxStacks: Infinity,
-        effect: {
-            damagePerTurn: 1
-        }
+        removal: ConditionRemoval.TEST,
+        removalTest: {
+            comp: 'ATHLETICS',
+        },
+        damageOverTime: true,
     },
 
     // ---------------------------------------------------------------------------
@@ -43,31 +46,38 @@ TEW.DATABASE.CONDITIONS = {
     // Un test de Premiers Soins SL≥stack retire toutes les piles.
     // ---------------------------------------------------------------------------
     BLEEDING: {
-        id: "BLEEDING",
+        id: ConditionId.BLEEDING,
         name: "Bleeding",
         message: "bled",
         description: "You are bleeding from an open wound. You suffer 1 Wound per stack at the start of your turn. A First Aid Test with SL equal to or greater than your stacks removes all stacks.",
         maxStacks: Infinity,
-        effect: {
-            damagePerTurn: 1
-        }
+        removal: ConditionRemoval.NONE,
+        fatiguedOnRemoval: true,
+        damageOverTime: true,
     },
 
-    // ---------------------------------------------------------------------------
-    // BROKEN — Psychologie brisée. Le personnage est terrorisé.
-    // Doit fuir à chaque tour. Ne peut pas attaquer.
-    // Retire 1 pile à chaque fin de tour hors de la portée de la source de peur.
-    // ---------------------------------------------------------------------------
-    BROKEN: {
-        id: "BROKEN",
-        name: "Broken",
-        description: "Your will is shattered by fear. You must spend your Movement fleeing away from the source of your terror. You cannot take offensive actions. Remove 1 stack at the end of each turn spent out of range of the fear source.",
+    BLINDED: {
+        id: ConditionId.BLINDED,
+        name: "Blinded",
+        description: "You are blinded and suffer a penalty to all tests that depend on sight.",
         maxStacks: Infinity,
-        effect: {
-            mustFlee: true,
-            blocksAction: true,
-            testModifier: -10
-        }
+        testModifier: {
+            mod: -10,
+            comps: ['EVALUATE', 'NAVIGATION', 'PERCEPTION', 'TRACK', 'MELEE_BASIC', 'MELEE_BRAWLING', 'MELEE_CAVALRY', 'MELEE_FENCING', 'MELEE_PARRY', 'MELEE_FLAIL', 'MELEE_POLE_ARM', 'MELEE_TWO_HANDED', 'RANGED_BOW', 'RANGED_BLACKPOWDER', 'RANGED_CROSSBOW', 'RANGED_ENGINEERING', 'RANGED_ENTANGLING', 'RANGED_EXPLOSIVES', 'RANGED_SLING', 'RANGED_THROWING'],
+        },
+        removal: ConditionRemoval.AUTO,
+    },
+
+    DEAFENED: {
+        id: ConditionId.DEAFENED,
+        name: "Deafened",
+        description: "You are deafened and suffer a penalty to all tests that depend on hearing.",
+        maxStacks: Infinity,
+        testModifier: {
+            mod: -10,
+            comps: ['LANGUAGE_BATTLE', 'LANGUAGE_BRETONNIAN', 'LANGUAGE_CLASSICAL', 'LANGUAGE_ELTHARIN', 'LANGUAGE_GUILDER', 'LANGUAGE_KHAZALID', 'LANGUAGE_MAGICK', 'LANGUAGE_MIDDENLANDER', 'LANGUAGE_WASTELANDER'],
+        },
+        removal: ConditionRemoval.AUTO,
     },
 
     // ---------------------------------------------------------------------------
@@ -75,14 +85,16 @@ TEW.DATABASE.CONDITIONS = {
     // Ne peut pas se déplacer. -20 à tous les tests.
     // ---------------------------------------------------------------------------
     ENTANGLED: {
-        id: "ENTANGLED",
+        id: ConditionId.ENTANGLED,
         name: "Entangled",
         description: "You are caught in a net, rope, or similar restraint. You cannot move voluntarily. You suffer −20 to all Tests. You may spend your Action attempting a Strength Test (SL 0) to free yourself.",
-        maxStacks: 1,
-        effect: {
-            blocksMovement: true,
-            testModifier: -20
-        }
+        maxStacks: Infinity,
+        testModifier: {
+            mod: -10,
+            comps: ['ATHLETICS', 'DODGE'],
+        },
+        removal: ConditionRemoval.TEST,
+        blocksMovement: true,
     },
 
     // ---------------------------------------------------------------------------
@@ -90,13 +102,14 @@ TEW.DATABASE.CONDITIONS = {
     // -10 à tous les tests par pile.
     // ---------------------------------------------------------------------------
     FATIGUED: {
-        id: "FATIGUED",
+        id: ConditionId.FATIGUED,
         name: "Fatigued",
         description: "You are exhausted. You suffer −10 to all Tests per stack. Resting for at least 1 hour removes 1 stack.",
         maxStacks: Infinity,
-        effect: {
-            testModifier: -10
-        }
+        testModifier: {
+            mod: -10,
+        },
+        removal: ConditionRemoval.NONE,
     },
 
     // ---------------------------------------------------------------------------
@@ -105,15 +118,20 @@ TEW.DATABASE.CONDITIONS = {
     // Un Antidote ou test de Premiers Soins SL≥1 retire 1 pile.
     // ---------------------------------------------------------------------------
     POISONED: {
-        id: "POISONED",
+        id: ConditionId.POISONED,
         name: "Poisoned",
         message: "were poisoned",
         description: "Venom courses through your veins. You suffer −10 to all Tests and 1 Wound per stack at the start of your turn. An antidote or successful First Aid Test (SL 1+) removes 1 stack.",
         maxStacks: Infinity,
-        effect: {
-            testModifier: -10,
-            damagePerTurn: 1
-        }
+        testModifier: {
+            mod: -10,
+        },
+        removal: ConditionRemoval.TEST,
+        removalTest: {
+            comp: 'ENDURANCE',
+        },
+        fatiguedOnRemoval: true,
+        damageOverTime: true,
     },
 
     // ---------------------------------------------------------------------------
@@ -123,14 +141,16 @@ TEW.DATABASE.CONDITIONS = {
     // Dépenser son déplacement pour se relever.
     // ---------------------------------------------------------------------------
     PRONE: {
-        id: "PRONE",
+        id: ConditionId.PRONE,
         name: "Prone",
         description: "You have been knocked down. Ranged attacks against you suffer −20; melee attacks against you gain +20. You must spend your full Movement to stand up.",
         maxStacks: 1,
-        effect: {
-            blocksMovement: true,
-            testModifier: -20
-        }
+        testModifier: {
+            mod: -20,
+            comps: ['ATHLETICS', 'DODGE'],
+        },
+        removal: ConditionRemoval.AUTO,
+        blocksMovement: true,
     },
 
     // ---------------------------------------------------------------------------
@@ -138,14 +158,18 @@ TEW.DATABASE.CONDITIONS = {
     // Retire 1 pile à la fin de son tour.
     // ---------------------------------------------------------------------------
     STUNNED: {
-        id: "STUNNED",
+        id: ConditionId.STUNNED,
         name: "Stunned",
         description: "You are dazed. You lose your Action each turn. Remove 1 stack at the end of your turn.",
         maxStacks: Infinity,
-        effect: {
-            blocksAction: true,
-            testModifier: -10
-        }
+        testModifier: {
+            mod: -10,
+        },
+        removal: ConditionRemoval.TEST,
+        removalTest: {
+            comp: 'ENDURANCE',
+        },
+        fatiguedOnRemoval: true,
     },
 
     // ---------------------------------------------------------------------------
@@ -153,15 +177,13 @@ TEW.DATABASE.CONDITIONS = {
     // Retiré automatiquement au début du prochain tour du personnage.
     // ---------------------------------------------------------------------------
     SURPRISED: {
-        id: "SURPRISED",
+        id: ConditionId.SURPRISED,
         name: "Surprised",
         description: "You have been caught off guard. You lose your turn entirely. This condition is automatically removed at the start of your next turn.",
         maxStacks: 1,
-        removeOnTurnStart: true,
-        effect: {
-            blocksAction: true,
-            blocksMovement: true
-        }
+        removal: ConditionRemoval.AUTO,
+        blocksAction: true,
+        blocksMovement: true,
     },
 
     // ---------------------------------------------------------------------------
@@ -169,15 +191,13 @@ TEW.DATABASE.CONDITIONS = {
     // Les Blessures ne peuvent pas descendre en dessous de 0.
     // ---------------------------------------------------------------------------
     UNCONSCIOUS: {
-        id: "UNCONSCIOUS",
+        id: ConditionId.UNCONSCIOUS,
         name: "Unconscious",
         description: "You have lost consciousness and are completely helpless. You cannot take any actions and cannot be further Wounded beyond 0.",
         maxStacks: 1,
-        effect: {
-            incapacitated: true,
-            blocksAction: true,
-            blocksMovement: true
-        }
+        removal: ConditionRemoval.NONE,
+        blocksAction: true,
+        blocksMovement: true,
     }
 
 };

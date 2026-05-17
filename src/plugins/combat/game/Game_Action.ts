@@ -1,6 +1,6 @@
 // $PluginCompiler TEW_Combat.js
 
-import { SpellRange, SpellTarget, SpellTargetRadius, Stat } from "../../_types/enum";
+import { BodyLocation, ConditionId, SpellRange, SpellTarget, SpellTargetRadius, Stat } from "../../_types/enum";
 import { Spell } from "../../_types/spell";
 import TEW from "../../_types/tew";
 import { Game_BattlerBase } from "../../base/stats/Game_BattlerBase";
@@ -14,6 +14,11 @@ import Game_Battler from "./Game_Battler";
 // The game object class for a battle action.
 
 TEW.MEMORY.gameActionInit = Game_Action.prototype.initialize;
+// TODO +10 when deafened and attacking from behind/flank
+// TODO +20 if prone
+// TODO +20 if surprised
+// TODO +10 if blinded
+// TODO bonus on unconscious
 Game_Action.prototype.initialize = function(subject, forcing, modifiers = {}) {
     TEW.MEMORY.gameActionInit.call(this, subject, forcing);
     this._moveRoute = 0;
@@ -157,6 +162,10 @@ Game_Action.prototype.showAreaOfEffect = function() {
     }, this)
 };
 
+Game_Action.prototype.isInRange = function(x: number, y: number) {
+    return this._range.some(pos => pos[0] === x && pos[1] === y);
+};
+
 Game_Action.prototype.color = function() {
     return this.isForFriend() ? TEW.COMBAT.SYSTEM.allyScopeColor : TEW.COMBAT.SYSTEM.enemyScopeColor;
 };
@@ -264,6 +273,7 @@ Game_Action.prototype.applyWeaponAttack = function(target) {
     const attacker = this.subject();
     const attackerWeapon = TEW.COMBAT.getWeaponFromId(attacker.equippedWeapon().id); // TODO attack with second hand
     const attackerWeaponEffects = TEW.COMBAT.getWeaponQualityEffects(attackerWeapon);
+    const isMeleeWeapon = TEW.COMBAT.isMeleeWeapon(attackerWeapon);
 
     const defenderWeapon = TEW.COMBAT.getWeaponFromId(target.equippedWeapon().id); // TODO defend with second hand
     const defenderWeaponEffects = TEW.COMBAT.getWeaponQualityEffects(defenderWeapon);
@@ -275,7 +285,7 @@ Game_Action.prototype.applyWeaponAttack = function(target) {
     const attackerCombatSkill = TEW.COMBAT.getAttackCompOrDefault(
         attacker,
         attackerWeapon.group,
-        TEW.COMBAT.isMeleeWeapon(attackerWeapon)
+        isMeleeWeapon
     );
 
     // TODO Get (best) weapon from defender
@@ -294,11 +304,28 @@ Game_Action.prototype.applyWeaponAttack = function(target) {
     // TODO Check weapon effects on bonus (PRECISE)
     // TODO Check sizes
     // TODO Check outnumberment
+
+    // Attacker condition modifiers
+    let attackerConditionMod = attacker.totalConditionModifier(attackerCombatSkill.compId);
+    if (target.hasCondition(ConditionId.SURPRISED)) {
+        attackerConditionMod += 20;
+        target.removeCondition(ConditionId.SURPRISED);
+    }
+    if (isMeleeWeapon) {
+        if (target.hasCondition(ConditionId.BLINDED)) {
+            attackerConditionMod += 10;
+        }
+        // TODO deafened
+        // TODO prone
+    }
+
+    // Defender condition modifiers
+    const defenderConditionMod = target.totalConditionModifier();
     
     // Roll dice
     const combatResult = TEW.DICE.combatOpposedSkillTest(
-        attackerCombatSkill.value + attackerWeaponEffects.attackMod + this.attackRollModifier(),
-        defenderCombatSkill.value + defenderWeaponEffects.defenceMod,
+        attackerCombatSkill.value + attackerWeaponEffects.attackMod + this.attackRollModifier() + attackerConditionMod,
+        defenderCombatSkill.value + defenderWeaponEffects.defenceMod + defenderConditionMod,
         true,
         false // GIGA TODO
     );
@@ -330,29 +357,46 @@ Game_Action.prototype.applyWeaponAttack = function(target) {
     result.isHit = combatResult.slAttacker >= 0 && combatResult.success;
     result.missed = !result.isHit;
 
-    // TODO Check weapon effects on crit (make a list)
-    // TODO Check for crits
-
-    // Compute damage
-    //   Add weapon bonus + stat bonus + opposed DR
-    //   Check location
-    //   Check weapon effects based on location (make a list)
-    //   Remove defender's toug + TODO armor points
-    const damage = combatResult.slAttacker - combatResult.slDefender
-        + attackerWeapon.damage + (attackerWeapon.strBonus ? attacker.paramBonus(Stat.STRG) : 0)
-        - target.paramBonus(Stat.TOUG);
-
-    // TODO Lookup crit table (help me)
-
     if (result.isHit) {
-        if (this.item().damage.type > 0) { // TODO remove this logic
-            this.executeDamage(target, damage);
+        // TODO Check weapon effects on crit (make a list)
+        // TODO Check for crits
+
+        //   Check location
+        const hitLocation: BodyLocation = BodyLocation.HEAD; // TODO location table
+
+        // Compute damage
+        //   Add weapon bonus + stat bonus + opposed DR
+        //   Remove defender's toug + TODO armor points
+        const damage = combatResult.slAttacker - combatResult.slDefender
+            + attackerWeapon.damage + (attackerWeapon.strBonus ? attacker.paramBonus(Stat.STRG) : 0)
+            - target.paramBonus(Stat.TOUG);
+        this.executeDamage(target, 1);
+            
+        //   Check weapon effects based on location (make a list)
+        if (attackerWeaponEffects.effects.PUMMEL && hitLocation === BodyLocation.HEAD) {
+            const pummelTestResult = TEW.DICE.opposedTest(attacker.paramByName(Stat.STRG), target.paramByName(Stat.STRG));
+            if (pummelTestResult.success) {
+                target.addCondition(ConditionId.STUNNED);
+            }
         }
-        this.item().effects.forEach(function(effect) {
-            this.applyItemEffect(target, effect);
-        }, this);
-        this.applyItemUserEffect(target);
+        if (attackerWeaponEffects.effects.ENTANGLE) {
+            target.addCondition(ConditionId.ENTANGLED, 1, attacker.paramBonus(Stat.STRG));
+        }
+
+        // TODO Lookup crit table (help me)
     }
+
+    // if (result.isHit) {
+    //     // old logic
+    //     if (this.item().damage.type > 0) { // TODO remove this logic
+    //         this.executeDamage(target, damage);
+    //     }
+    //     // TODO useless?
+    //     this.item().effects.forEach(function(effect) {
+    //         this.applyItemEffect(target, effect);
+    //     }, this);
+    //     this.applyItemUserEffect(target);
+    // }
 };
 
 /**

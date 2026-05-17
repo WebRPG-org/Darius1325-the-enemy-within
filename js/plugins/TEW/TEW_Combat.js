@@ -534,15 +534,17 @@ TEW.COMBAT.isMeleeWeapon = (weapon) => {
 };
 // Get battler's stat value for combat depending on the wielded weapon's group
 TEW.COMBAT.getAttackCompOrDefault = (battler, weaponGroup, isMelee) => {
-    const compName = (isMelee ? 'MELEE' : 'RANGED') + '_' + TEW.DATABASE.WEAPONS.GROUP_IDS[weaponGroup];
-    if (battler.hasComp(compName)) {
+    const compId = (isMelee ? 'MELEE' : 'RANGED') + '_' + TEW.DATABASE.WEAPONS.GROUP_IDS[weaponGroup];
+    if (battler.hasComp(compId)) {
         return {
+            compId,
             match: true,
-            value: battler.comp(compName)
+            value: battler.comp(compId)
         };
     }
     else {
         return {
+            compId: 'NONE',
             match: false,
             value: isMelee ? battler.weas : battler.bals
         };
@@ -614,25 +616,31 @@ var BattlePhase;
 // BattleManager
 //
 // The static class that manages tactics progress.
-// One action and one movement per turn unless advantages / specific talents are used
-// Action can be used as a second movement
-BattleManager.actionCount = 1;
-BattleManager.moveCount = 1;
-// Advantages accumulated by winning combat rounds or using the Observe action
-// Common pool for all actors that can be spent to get better rolls or extra actions
-BattleManager.partyAdvantages = 0;
 BattleManager.moveMultiplier = 1; // 0 to switch weapons, 1 for walking, 2 for running, ? for charging
 BattleManager.canMove = function () {
-    return this.actionCount > 0 || this.moveCount > 0;
+    return this._subject && this._subject._moveCount > 0;
 };
 BattleManager.canRun = function () {
-    return this.actionCount > 0 && this.moveCount > 0;
+    return this._subject && (this._subject._actionCount > 0 && this._subject._moveCount > 0);
 };
 BattleManager.canAct = function () {
-    return this.actionCount > 0;
+    return this._subject && this._subject._actionCount > 0;
+};
+BattleManager.canActOrMove = function () {
+    return this._subject && (this._subject._actionCount > 0 || this._subject._moveCount > 0);
 };
 BattleManager.canInput = function () {
-    return this.actionCount > 0 || this.moveCount > 0 || this.partyAdvantages > 3;
+    return this._subject && (this._subject._actionCount > 0 || this._subject._moveCount > 0 || $gamePartyTs._advantages > 3);
+};
+BattleManager.spendMove = function () {
+    if (this._subject) {
+        this._subject._moveCount -= 1;
+    }
+};
+BattleManager.spendAction = function () {
+    if (this._subject) {
+        this._subject._actionCount -= 1;
+    }
 };
 BattleManager.setup = function (troopId, canEscape, canLose) {
     this.initMembers();
@@ -1000,8 +1008,8 @@ BattleManager.updateChargeTarget = function () {
     action.setAttack();
     if ($gameSelector.selectTarget(action) >= 0) { // -1 if invalid target
         SoundManager.playOk();
-        BattleManager.moveCount -= 1;
-        BattleManager.actionCount -= 1;
+        BattleManager.spendMove();
+        BattleManager.spendAction();
         // TODO constant
         // TODO handle crit fail?
         const chargeTestResult = TEW.DICE.skillTest(this._subject, 'ATHLETICS', 20, !this._subject.isActor());
@@ -1045,7 +1053,7 @@ BattleManager.updateTarget = function () {
         action.setTarget(index);
         this.setupAction();
     }
-    else if ($gameSelector.isOk()) {
+    else if ($gameSelector.isOk() && action.isInRange($gameSelector.x, $gameSelector.y)) {
         // TODO hit the void
         this.endAction();
     }
@@ -1114,8 +1122,6 @@ BattleManager.updateStart = function () {
     else {
         this._currentBattler = this._currentTurnOrder.shift();
         this._battlerIndex = this._currentBattler.battlerIndex;
-        this.moveCount = 1;
-        this.actionCount = 1;
         this._subject = this.battler();
         if (this._subject.isAlive()) {
             if (this._currentBattler.isActor) {
@@ -1212,7 +1218,6 @@ BattleManager.setupAction = function () {
     this._infoWindow.close();
 };
 BattleManager.setupTarget = function () {
-    console.log("BattleManager - setup target");
     this.setupCombat(this._action); // TODO duplicate? Already called when highlighting tiles
     var targets = this._action.makeTargets();
     // TODO is this duplicate code?
@@ -1602,6 +1607,11 @@ DataManager.createGameObjects = function () {
 //
 // The game object class for a battle action.
 TEW.MEMORY.gameActionInit = Game_Action.prototype.initialize;
+// TODO +10 when deafened and attacking from behind/flank
+// TODO +20 if prone
+// TODO +20 if surprised
+// TODO +10 if blinded
+// TODO bonus on unconscious
 Game_Action.prototype.initialize = function (subject, forcing, modifiers = {}) {
     TEW.MEMORY.gameActionInit.call(this, subject, forcing);
     this._moveRoute = 0;
@@ -1735,6 +1745,9 @@ Game_Action.prototype.showAreaOfEffect = function () {
         $gameMap.addAoeTile(tile);
     }, this);
 };
+Game_Action.prototype.isInRange = function (x, y) {
+    return this._range.some(pos => pos[0] === x && pos[1] === y);
+};
 Game_Action.prototype.color = function () {
     return this.isForFriend() ? TEW.COMBAT.SYSTEM.allyScopeColor : TEW.COMBAT.SYSTEM.enemyScopeColor;
 };
@@ -1827,13 +1840,14 @@ Game_Action.prototype.applyWeaponAttack = function (target) {
     const attacker = this.subject();
     const attackerWeapon = TEW.COMBAT.getWeaponFromId(attacker.equippedWeapon().id); // TODO attack with second hand
     const attackerWeaponEffects = TEW.COMBAT.getWeaponQualityEffects(attackerWeapon);
+    const isMeleeWeapon = TEW.COMBAT.isMeleeWeapon(attackerWeapon);
     const defenderWeapon = TEW.COMBAT.getWeaponFromId(target.equippedWeapon().id); // TODO defend with second hand
     const defenderWeaponEffects = TEW.COMBAT.getWeaponQualityEffects(defenderWeapon);
     // Damage calc
     //
     // Choose weapon (elsewhere)
     //   Get combat characteristic associated with weapon
-    const attackerCombatSkill = TEW.COMBAT.getAttackCompOrDefault(attacker, attackerWeapon.group, TEW.COMBAT.isMeleeWeapon(attackerWeapon));
+    const attackerCombatSkill = TEW.COMBAT.getAttackCompOrDefault(attacker, attackerWeapon.group, isMeleeWeapon);
     // TODO Get (best) weapon from defender
     // TODO ranged attacks must be dodged
     //   Get combat characteristic associated with weapon
@@ -1845,8 +1859,23 @@ Game_Action.prototype.applyWeaponAttack = function (target) {
     // TODO Check weapon effects on bonus (PRECISE)
     // TODO Check sizes
     // TODO Check outnumberment
+    // Attacker condition modifiers
+    let attackerConditionMod = attacker.totalConditionModifier(attackerCombatSkill.compId);
+    if (target.hasCondition("SURPRISED" /* ConditionId.SURPRISED */)) {
+        attackerConditionMod += 20;
+        target.removeCondition("SURPRISED" /* ConditionId.SURPRISED */);
+    }
+    if (isMeleeWeapon) {
+        if (target.hasCondition("BLINDED" /* ConditionId.BLINDED */)) {
+            attackerConditionMod += 10;
+        }
+        // TODO deafened
+        // TODO prone
+    }
+    // Defender condition modifiers
+    const defenderConditionMod = target.totalConditionModifier();
     // Roll dice
-    const combatResult = TEW.DICE.combatOpposedSkillTest(attackerCombatSkill.value + attackerWeaponEffects.attackMod + this.attackRollModifier(), defenderCombatSkill.value + defenderWeaponEffects.defenceMod, true, false // GIGA TODO
+    const combatResult = TEW.DICE.combatOpposedSkillTest(attackerCombatSkill.value + attackerWeaponEffects.attackMod + this.attackRollModifier() + attackerConditionMod, defenderCombatSkill.value + defenderWeaponEffects.defenceMod + defenderConditionMod, true, false // GIGA TODO
     );
     // Special weapon quality checks
     // Impale
@@ -1871,26 +1900,41 @@ Game_Action.prototype.applyWeaponAttack = function (target) {
     // Check hit/miss
     result.isHit = combatResult.slAttacker >= 0 && combatResult.success;
     result.missed = !result.isHit;
-    // TODO Check weapon effects on crit (make a list)
-    // TODO Check for crits
-    // Compute damage
-    //   Add weapon bonus + stat bonus + opposed DR
-    //   Check location
-    //   Check weapon effects based on location (make a list)
-    //   Remove defender's toug + TODO armor points
-    const damage = combatResult.slAttacker - combatResult.slDefender
-        + attackerWeapon.damage + (attackerWeapon.strBonus ? attacker.paramBonus("STRG" /* Stat.STRG */) : 0)
-        - target.paramBonus("TOUG" /* Stat.TOUG */);
-    // TODO Lookup crit table (help me)
     if (result.isHit) {
-        if (this.item().damage.type > 0) { // TODO remove this logic
-            this.executeDamage(target, damage);
+        // TODO Check weapon effects on crit (make a list)
+        // TODO Check for crits
+        //   Check location
+        const hitLocation = 2 /* BodyLocation.HEAD */; // TODO location table
+        // Compute damage
+        //   Add weapon bonus + stat bonus + opposed DR
+        //   Remove defender's toug + TODO armor points
+        const damage = combatResult.slAttacker - combatResult.slDefender
+            + attackerWeapon.damage + (attackerWeapon.strBonus ? attacker.paramBonus("STRG" /* Stat.STRG */) : 0)
+            - target.paramBonus("TOUG" /* Stat.TOUG */);
+        this.executeDamage(target, 1);
+        //   Check weapon effects based on location (make a list)
+        if (attackerWeaponEffects.effects.PUMMEL && hitLocation === 2 /* BodyLocation.HEAD */) {
+            const pummelTestResult = TEW.DICE.opposedTest(attacker.paramByName("STRG" /* Stat.STRG */), target.paramByName("STRG" /* Stat.STRG */));
+            if (pummelTestResult.success) {
+                target.addCondition("STUNNED" /* ConditionId.STUNNED */);
+            }
         }
-        this.item().effects.forEach(function (effect) {
-            this.applyItemEffect(target, effect);
-        }, this);
-        this.applyItemUserEffect(target);
+        if (attackerWeaponEffects.effects.ENTANGLE) {
+            target.addCondition("ENTANGLED" /* ConditionId.ENTANGLED */, 1, attacker.paramBonus("STRG" /* Stat.STRG */));
+        }
+        // TODO Lookup crit table (help me)
     }
+    // if (result.isHit) {
+    //     // old logic
+    //     if (this.item().damage.type > 0) { // TODO remove this logic
+    //         this.executeDamage(target, damage);
+    //     }
+    //     // TODO useless?
+    //     this.item().effects.forEach(function(effect) {
+    //         this.applyItemEffect(target, effect);
+    //     }, this);
+    //     this.applyItemUserEffect(target);
+    // }
 };
 /**
  * TODO
@@ -2304,7 +2348,9 @@ Game_Battler.prototype.onTurnStart = function () {
         this._canAction = true;
         this.event().setStepAnime(true);
     }
-    this.applyConditionsTurnStart();
+    this._moveCount = 1;
+    this._actionCount = 1;
+    this.applyConditionsOnTurnStart();
     this.makeActions();
     this.makeMoves(false);
 };
@@ -4035,6 +4081,9 @@ Game_Unit.prototype.onBattleStart = function () {
 // The superclass of Game_PartyTs and Game_TroopTs.
 function Game_UnitTs() {
     this.initialize.apply(this, arguments);
+    // Advantages accumulated by winning combat rounds or using the Observe action
+    // Common pool for all battlers that can be spent to get better rolls or extra actions
+    this._advantages = 0;
 }
 Game_UnitTs.prototype.initialize = function () {
     this._inBattle = false;
@@ -5077,12 +5126,12 @@ Scene_Battle.prototype.commandMove = function () {
 };
 Scene_Battle.prototype.commandWalk = function () {
     // Spend a movement if possible or spend an action to move
-    if (BattleManager.moveCount > 0) {
-        BattleManager.moveCount -= 1;
+    if (BattleManager.canMove()) {
+        BattleManager.spendMove();
         this.commandWalkOrRun();
     }
-    else if (BattleManager.actionCount > 0) {
-        BattleManager.actionCount -= 1;
+    else if (BattleManager.canAct()) {
+        BattleManager.spendAction();
         this.commandWalkOrRun();
     }
     else {
@@ -5091,8 +5140,8 @@ Scene_Battle.prototype.commandWalk = function () {
 };
 Scene_Battle.prototype.commandRun = function () {
     if (BattleManager.canRun()) {
-        BattleManager.moveCount -= 1;
-        BattleManager.actionCount -= 1;
+        BattleManager.spendMove();
+        BattleManager.spendAction();
         this.commandWalkOrRun();
     }
     else {
@@ -5124,15 +5173,15 @@ Scene_Battle.prototype.commandWalkOrRun = function () {
 };
 Scene_Battle.prototype.commandSwitchWeapon = function () {
     // Spend a movement if possible or spend an action to move
-    if (BattleManager.moveCount === 0 && BattleManager.actionCount === 0) {
+    if (!BattleManager.canActOrMove()) {
         SoundManager.playCancel();
     }
     else {
-        if (BattleManager.moveCount > 0) {
-            BattleManager.moveCount -= 1;
+        if (BattleManager.canMove()) {
+            BattleManager.spendMove();
         }
         else {
-            BattleManager.actionCount -= 1;
+            BattleManager.spendAction();
         }
         this._weaponsWindow.open();
         this._weaponDetailsWindow.open();

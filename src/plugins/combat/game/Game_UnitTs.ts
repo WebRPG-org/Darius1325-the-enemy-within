@@ -11,6 +11,10 @@ export default Game_UnitTs.prototype;
 
 function Game_UnitTs() {
     this.initialize.apply(this, arguments);
+
+    // Advantages accumulated by winning combat rounds or using the Observe action
+    // Common pool for all battlers that can be spent to get better rolls or extra actions
+    this._advantages = 0;
 }
 
 Game_UnitTs.prototype.initialize = function() {

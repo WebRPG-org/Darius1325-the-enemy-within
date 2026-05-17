@@ -1,6 +1,6 @@
 // $PluginCompiler TEW_Base.js
 
-import {BodyLocation, StatName, WeaponGroup} from "../../_types/enum";
+import {BodyLocation, ConditionId, ConditionRemoval, Stat, StatName, WeaponGroup} from "../../_types/enum";
 import TEW from "../../_types/tew";
 import {Armor} from "../../_types/armor";
 
@@ -82,6 +82,7 @@ export interface Game_BattlerBase {
     unequipArmors: (armorIds: string[]) => void;
     armorsAtLocation: (location: BodyLocation) => Armor[];
     armorsAtLocations: (locations: BodyLocation[]) => Armor[];
+    lowestArmorPointsByLocation: () => number;
     sortArmors: () => void;
     sortEquippedArmors: () => void;
 
@@ -133,7 +134,7 @@ Game_BattlerBase.prototype.initialize = function() {
     this._armors = [];
     this._equippedArmors = [];
     this._ammo = {}; // ID: quantity
-    this._conditions = {}; // ID: stacks
+    this._conditions = {}; // ID: data
     this._exp = 0;
     this._fate = 0;
     this._fortune = 0;
@@ -422,6 +423,22 @@ Game_BattlerBase.prototype.armorsAtLocations = function(locations: BodyLocation[
         .filter((armor: Armor) => armor.locations.some(location => locations.includes(location)));
 };
 
+Game_BattlerBase.prototype.lowestArmorPointsByLocation = function() {
+    let aggregator: Record<number, number> = {};
+    aggregator[BodyLocation.ARMS] = 0;
+    aggregator[BodyLocation.LEGS] = 0;
+    aggregator[BodyLocation.HEAD] = 0;
+    aggregator[BodyLocation.BODY] = 0;
+    this._equippedArmors.map((armor: string) => TEW.DATABASE.ARMORS.SET[armor])
+        .reduce((agg: Record<BodyLocation, number>, armor: Armor) => {
+            armor.locations.forEach(location => agg[location] += armor.ap);
+        }, aggregator);
+    return Math.min(aggregator[BodyLocation.ARMS],
+        aggregator[BodyLocation.LEGS],
+        aggregator[BodyLocation.HEAD],
+        aggregator[BodyLocation.BODY]);
+};
+
 Game_BattlerBase.prototype.sortArmors = function() {
     this._armors = this._armors.sort((a: string, b: string) =>
         TEW.DATABASE.ARMORS.IDS.indexOf(a) - TEW.DATABASE.ARMORS.IDS.indexOf(b));
@@ -460,115 +477,117 @@ Game_BattlerBase.prototype.hasAmmo = function(ammoId : string) {
 
 
 // Conditions
-Game_BattlerBase.prototype.conditionStacks = function(conditionId: string): number {
-    return this._conditions[conditionId] || 0;
+Game_BattlerBase.prototype.conditionStacks = function(conditionId: ConditionId): number {
+    return this._conditions[conditionId]?.stacks || 0;
 };
 
-Game_BattlerBase.prototype.hasCondition = function(conditionId: string): boolean {
+Game_BattlerBase.prototype.hasCondition = function(conditionId: ConditionId): boolean {
     return this.conditionStacks(conditionId) > 0;
 };
 
-Game_BattlerBase.prototype.addCondition = function(conditionId: string, amount = 1): void {
+Game_BattlerBase.prototype.addCondition = function(conditionId: ConditionId, amount = 1, entangledStrength = undefined): void {
     const condition = TEW.DATABASE.CONDITIONS[conditionId];
     if (!condition) return;
 
     const current = this.conditionStacks(conditionId);
     const max = condition.maxStacks === Infinity ? Number.MAX_SAFE_INTEGER : condition.maxStacks;
-    this._conditions[conditionId] = Math.min(current + amount, max);
+    this._conditions[conditionId] = {
+        stacks: Math.min(current + amount, max),
+        entangledStrength
+    };
 };
 
-Game_BattlerBase.prototype.removeCondition = function(conditionId: string, amount: number = 1): void {
+Game_BattlerBase.prototype.removeCondition = function(conditionId: ConditionId, stacks: number = 1): void {
     const current = this.conditionStacks(conditionId);
-    const next = current - amount;
+    const next = current - stacks;
     if (next <= 0) {
-        delete this._conditions[conditionId];
+        this.clearCondition(conditionId);
     } else {
-        this._conditions[conditionId] = next;
+        this._conditions[conditionId].stacks = next;
     }
 };
 
-Game_BattlerBase.prototype.clearCondition = function(conditionId: string): void {
+Game_BattlerBase.prototype.clearCondition = function(conditionId: ConditionId): void {
     delete this._conditions[conditionId];
     $gameMessage.add(`You lost condition: ${TEW.DATABASE.CONDITIONS[conditionId].name}.`);
+    const condition = TEW.DATABASE.CONDITIONS[conditionId];
+    if (condition.fatiguedOnRemoval) {
+        this.addCondition(ConditionId.FATIGUED);
+    }
+    if (condition.proneOnRemoval) {
+        this.addCondition(ConditionId.PRONE);
+    }
 };
 
 Game_BattlerBase.prototype.clearAllConditions = function(): void {
     this._conditions = {};
 };
 
-
-/**
- * Applies condition effects at turn start
- */
-Game_BattlerBase.prototype.applyConditionsTurnStart = function(): number {
+Game_BattlerBase.prototype.applyConditionsOnTurnStart = function(): number {
     let totalDamage = 0;
-    const toRemove: string[] = [];
     let conditionId: string;
+    console.log(this.name(), this._conditions);
 
     for (conditionId in this._conditions) {
         const condition = TEW.DATABASE.CONDITIONS[conditionId];
         if (!condition) continue;
 
-        // TODO DOT is not always 1
-        if (condition.effect.damagePerTurn) {
-            const damage = condition.effect.damagePerTurn * this._conditions[conditionId];
+        // Damage over time
+        if (condition.damageOverTime) {
+            let damage = this.conditionStacks(conditionId);
+            if (conditionId === ConditionId.ABLAZE) {
+                damage += Math.floor(Math.random() * 10);
+                damage -= this.lowestArmorPointsByLocation() + this.paramBonus(Stat.TOUG);
+                damage = Math.max(damage, 1);
+            }
             $gameMessage.add(`You ${condition.message} for ${damage} damage.`);
             totalDamage += damage;
         }
 
-        // TODO some conditions require tests to be rid of
-        if (condition.removeOnTurnStart) {
-            toRemove.push(conditionId);
+        // Restrictive conditions
+        if (condition.blocksMovement) {
+            this._moveCount = 0;
+        }
+        if (condition.blocksAction) {
+            this._actionCount = 0;
+        }
+
+        // Auto removal
+        if (condition.removal === ConditionRemoval.AUTO) {
+            this.removeCondition(conditionId);
+        } else if (condition.removal === ConditionRemoval.TEST) {
+            let removalTestResult: { success: boolean; sl: number; };
+            if (condition.id === ConditionId.ENTANGLED) {
+                removalTestResult = TEW.DICE.opposedTest(this.paramByName(Stat.STRG), this._conditions[conditionId].entangledStrength);
+            } else {
+                removalTestResult = TEW.DICE.skillTest(this, condition.removalTest.comp, 0, false);
+            }
+            if (removalTestResult.success) {
+                this.removeCondition(conditionId, removalTestResult.sl + 1);
+            }
         }
     }
 
-    toRemove.forEach(id => this.clearCondition(id));
-
     if (totalDamage > 0) {
         this.gainHp(-totalDamage); // TODO use damage execution to trigger animations and shit (+ toughness)
-    }
+    } // TODO special effects for poison and bleeding when 0 HP remain
 
     return totalDamage;
 };
 
-Game_BattlerBase.prototype.totalConditionModifier = function(): number {
-    let mod = 0;
-    let conditionId: string;
-    for (conditionId in this._conditions) {
-        const condition = TEW.DATABASE.CONDITIONS[conditionId];
-        if (condition?.effect.testModifier) {
-            mod += condition.effect.testModifier * this._conditions[conditionId];
-        }
-    }
-    return mod;
+Game_BattlerBase.prototype.totalConditionModifier = function(compId = 'NONE'): number {
+    return Object.keys(this._conditions)
+        .map(conditionId => TEW.DATABASE.CONDITIONS[conditionId].testModifier)
+        .filter(testModifier => testModifier?.comps === undefined || testModifier?.comps.includes(compId))
+        .reduce((acc, testModifier) => acc + testModifier.mod, 0);
 };
 
-Game_BattlerBase.prototype.isBlockedByCondition = function(): boolean {
-    for (const conditionId in this._conditions) {
-        const condition = TEW.DATABASE.CONDITIONS[conditionId];
-        if (condition?.effect.blocksAction || condition?.effect.incapacitated) {
-            return true;
-        }
-    }
-    return false;
+Game_BattlerBase.prototype.isActionBlockedByCondition = function(): boolean {
+    return Object.keys(this._conditions)
+        .some(conditionId => TEW.DATABASE.CONDITIONS[conditionId].blocksAction);
 };
 
 Game_BattlerBase.prototype.isMovementBlockedByCondition = function(): boolean {
-    for (const conditionId in this._conditions) {
-        const condition = TEW.DATABASE.CONDITIONS[conditionId];
-        if (condition?.effect.blocksMovement || condition?.effect.incapacitated) {
-            return true;
-        }
-    }
-    return false;
-};
-
-Game_BattlerBase.prototype.mustFleeDueToCondition = function(): boolean {
-    for (const conditionId in this._conditions) {
-        const condition = TEW.DATABASE.CONDITIONS[conditionId];
-        if (condition?.effect.mustFlee) {
-            return true;
-        }
-    }
-    return false;
+    return Object.keys(this._conditions)
+        .some(conditionId => TEW.DATABASE.CONDITIONS[conditionId].blocksMovement);
 };

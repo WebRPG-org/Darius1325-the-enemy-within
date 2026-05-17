@@ -101,23 +101,15 @@ Game_Interpreter.prototype.rollWindsOfMagic = function() {
 
 // Opposed skill tests
 
-Game_Interpreter.prototype.opposedSkillTest = function(compIdPlayer: string, modifierPlayer: number, skillValueNPC: number) {
-    const actorSkillBaseValues = [];
-    for (let i = 1; i < $gameActors._data.length; i++) {
-        if ($gameActors._data[i]) {
-            actorSkillBaseValues.push($gameActors._data[i].comp(compIdPlayer));
-        }
-    }
-    const maxPartySkill = Math.max(...actorSkillBaseValues) + modifierPlayer;
-
+TEW.DICE.opposedTest = function(skillValue: number, opposedSkillValue: number, modifier = 0, opposedModifier = 0) {
     const rollPlayer = TEW.DICE.displayDiceRoll();
     const rollNPC = TEW.DICE.roll();
 
-    let slPlayer = Math.floor(maxPartySkill / 10) - Math.floor(rollPlayer / 10);
-    let slNPC = Math.floor(skillValueNPC / 10) - Math.floor(rollNPC / 10);
+    let slPlayer = Math.floor((skillValue + modifier) / 10) - Math.floor(rollPlayer / 10);
+    let slNPC = Math.floor((opposedSkillValue + opposedModifier) / 10) - Math.floor(rollNPC / 10);
 
-    let successRollPlayer = maxPartySkill >= rollPlayer;
-    let successRollNpc = skillValueNPC >= rollNPC;
+    let successRollPlayer = (skillValue + modifier) >= rollPlayer;
+    let successRollNpc = (opposedSkillValue + opposedModifier) >= rollNPC;
 
     if (rollPlayer <= 5) {
         successRollPlayer = true;
@@ -136,11 +128,11 @@ Game_Interpreter.prototype.opposedSkillTest = function(compIdPlayer: string, mod
     }
 
     let criticalPlayer = rollPlayer % 11 === 0 || rollPlayer === 100;
-    let criticalNPC = rollNPC % 11 === 0 || rollNPC === 100;
+    // let criticalNPC = rollNPC % 11 === 0 || rollNPC === 100;
 
     let success: boolean;
 
-    // if Player succeed && it's SL is greater than the NPC SL, player wins
+    // if Player succeed && its SL is greater than the NPC SL, player wins
     if (slPlayer > slNPC && successRollPlayer) {
         success = true;
 
@@ -150,17 +142,26 @@ Game_Interpreter.prototype.opposedSkillTest = function(compIdPlayer: string, mod
 
     // else draw
     } else {
-        success = (maxPartySkill >= skillValueNPC);
+        success = (skillValue >= opposedSkillValue);
     }
 
-    console.log(`Player roll: ${rollPlayer} (SL: ${slPlayer}, Critical: ${criticalPlayer})`);
-    console.log(`NPC roll: ${rollNPC} (SL: ${slNPC}, Critical: ${criticalNPC})`);
-    console.log(`Opposed test result: ${success ? "Player wins" : "NPC wins"}`);
     return {
         sl: slPlayer - slNPC,
         success,
         criticalPlayer
     };
+};
+
+Game_Interpreter.prototype.opposedSkillTest = function(compIdPlayer: string, modifierPlayer: number, skillValueNPC: number) {
+    const actorSkillBaseValues = [];
+    for (let i = 1; i < $gameActors._data.length; i++) {
+        if ($gameActors._data[i]) {
+            actorSkillBaseValues.push($gameActors._data[i].comp(compIdPlayer));
+        }
+    }
+    const maxPartySkill = Math.max(...actorSkillBaseValues);
+
+    return TEW.DICE.opposedTest(maxPartySkill, skillValueNPC, modifierPlayer);
 };
 
 // Combat opposed test

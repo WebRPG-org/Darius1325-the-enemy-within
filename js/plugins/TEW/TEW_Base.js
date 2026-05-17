@@ -211,20 +211,13 @@ Game_Interpreter.prototype.rollWindsOfMagic = function () {
     $gameVariables.setValue(15, womModifier);
 };
 // Opposed skill tests
-Game_Interpreter.prototype.opposedSkillTest = function (compIdPlayer, modifierPlayer, skillValueNPC) {
-    const actorSkillBaseValues = [];
-    for (let i = 1; i < $gameActors._data.length; i++) {
-        if ($gameActors._data[i]) {
-            actorSkillBaseValues.push($gameActors._data[i].comp(compIdPlayer));
-        }
-    }
-    const maxPartySkill = Math.max(...actorSkillBaseValues) + modifierPlayer;
+TEW.DICE.opposedTest = function (skillValue, opposedSkillValue, modifier = 0, opposedModifier = 0) {
     const rollPlayer = TEW.DICE.displayDiceRoll();
     const rollNPC = TEW.DICE.roll();
-    let slPlayer = Math.floor(maxPartySkill / 10) - Math.floor(rollPlayer / 10);
-    let slNPC = Math.floor(skillValueNPC / 10) - Math.floor(rollNPC / 10);
-    let successRollPlayer = maxPartySkill >= rollPlayer;
-    let successRollNpc = skillValueNPC >= rollNPC;
+    let slPlayer = Math.floor((skillValue + modifier) / 10) - Math.floor(rollPlayer / 10);
+    let slNPC = Math.floor((opposedSkillValue + opposedModifier) / 10) - Math.floor(rollNPC / 10);
+    let successRollPlayer = (skillValue + modifier) >= rollPlayer;
+    let successRollNpc = (opposedSkillValue + opposedModifier) >= rollNPC;
     if (rollPlayer <= 5) {
         successRollPlayer = true;
         slPlayer = slPlayer > 0 ? slPlayer : 0;
@@ -242,9 +235,9 @@ Game_Interpreter.prototype.opposedSkillTest = function (compIdPlayer, modifierPl
         slNPC = slNPC < 0 ? slNPC : 0;
     }
     let criticalPlayer = rollPlayer % 11 === 0 || rollPlayer === 100;
-    let criticalNPC = rollNPC % 11 === 0 || rollNPC === 100;
+    // let criticalNPC = rollNPC % 11 === 0 || rollNPC === 100;
     let success;
-    // if Player succeed && it's SL is greater than the NPC SL, player wins
+    // if Player succeed && its SL is greater than the NPC SL, player wins
     if (slPlayer > slNPC && successRollPlayer) {
         success = true;
         // else if SL Player is less than SL NPC or if player misses, player fails
@@ -254,16 +247,23 @@ Game_Interpreter.prototype.opposedSkillTest = function (compIdPlayer, modifierPl
         // else draw
     }
     else {
-        success = (maxPartySkill >= skillValueNPC);
+        success = (skillValue >= opposedSkillValue);
     }
-    console.log(`Player roll: ${rollPlayer} (SL: ${slPlayer}, Critical: ${criticalPlayer})`);
-    console.log(`NPC roll: ${rollNPC} (SL: ${slNPC}, Critical: ${criticalNPC})`);
-    console.log(`Opposed test result: ${success ? "Player wins" : "NPC wins"}`);
     return {
         sl: slPlayer - slNPC,
         success,
         criticalPlayer
     };
+};
+Game_Interpreter.prototype.opposedSkillTest = function (compIdPlayer, modifierPlayer, skillValueNPC) {
+    const actorSkillBaseValues = [];
+    for (let i = 1; i < $gameActors._data.length; i++) {
+        if ($gameActors._data[i]) {
+            actorSkillBaseValues.push($gameActors._data[i].comp(compIdPlayer));
+        }
+    }
+    const maxPartySkill = Math.max(...actorSkillBaseValues);
+    return TEW.DICE.opposedTest(maxPartySkill, skillValueNPC, modifierPlayer);
 };
 // Combat opposed test
 // SL = Success level (DR in french)
@@ -349,7 +349,7 @@ function Window_Dice() {
 Window_Dice.prototype = Object.create(Window_Base.prototype);
 Window_Dice.prototype.constructor = Window_Dice;
 Window_Dice.prototype.initialize = function (x, y, tens, units) {
-    Window_Base.prototype.initialize.call(this, x, y, 240, 110); // temp !!
+    Window_Base.prototype.initialize.call(this, x, y, 340, 160); // temp !!
     this._tens = tens;
     this._units = units;
     setTimeout(() => {
@@ -361,7 +361,7 @@ Window_Dice.prototype.windowWidth = function () {
     return 340;
 };
 Window_Dice.prototype.windowHeight = function () {
-    return 100;
+    return 160;
 };
 Window_Dice.prototype.refresh = function () {
     this.contents.clear();
@@ -483,10 +483,11 @@ Game_Actor.prototype.initCecile = function () {
     this.addItem('EAR_PICK', 1);
     this.addItem('COMB', 1);
     // weapons
+    this.addWeapon("GARROTE");
     this.addWeapon("DAGGER");
     this.addWeapon("RAPIER");
     this.addWeapon("SLING");
-    this.equipMainHand(1);
+    this.equipMainHand(0);
     // armors
     // ammo
     this.addAmmo("PEBBLE", 20);
@@ -713,7 +714,7 @@ Game_BattlerBase.prototype.initialize = function () {
     this._armors = [];
     this._equippedArmors = [];
     this._ammo = {}; // ID: quantity
-    this._conditions = {}; // ID: stacks
+    this._conditions = {}; // ID: data
     this._exp = 0;
     this._fate = 0;
     this._fortune = 0;
@@ -947,6 +948,18 @@ Game_BattlerBase.prototype.armorsAtLocations = function (locations) {
     return this._equippedArmors.map((armor) => TEW.DATABASE.ARMORS.SET[armor])
         .filter((armor) => armor.locations.some(location => locations.includes(location)));
 };
+Game_BattlerBase.prototype.lowestArmorPointsByLocation = function () {
+    let aggregator = {};
+    aggregator[0 /* BodyLocation.ARMS */] = 0;
+    aggregator[1 /* BodyLocation.LEGS */] = 0;
+    aggregator[2 /* BodyLocation.HEAD */] = 0;
+    aggregator[3 /* BodyLocation.BODY */] = 0;
+    this._equippedArmors.map((armor) => TEW.DATABASE.ARMORS.SET[armor])
+        .reduce((agg, armor) => {
+        armor.locations.forEach(location => agg[location] += armor.ap);
+    }, aggregator);
+    return Math.min(aggregator[0 /* BodyLocation.ARMS */], aggregator[1 /* BodyLocation.LEGS */], aggregator[2 /* BodyLocation.HEAD */], aggregator[3 /* BodyLocation.BODY */]);
+};
 Game_BattlerBase.prototype.sortArmors = function () {
     this._armors = this._armors.sort((a, b) => TEW.DATABASE.ARMORS.IDS.indexOf(a) - TEW.DATABASE.ARMORS.IDS.indexOf(b));
 };
@@ -975,101 +988,108 @@ Game_BattlerBase.prototype.hasAmmo = function (ammoId) {
 };
 // Conditions
 Game_BattlerBase.prototype.conditionStacks = function (conditionId) {
-    return this._conditions[conditionId] || 0;
+    var _a;
+    return ((_a = this._conditions[conditionId]) === null || _a === void 0 ? void 0 : _a.stacks) || 0;
 };
 Game_BattlerBase.prototype.hasCondition = function (conditionId) {
     return this.conditionStacks(conditionId) > 0;
 };
-Game_BattlerBase.prototype.addCondition = function (conditionId, amount = 1) {
+Game_BattlerBase.prototype.addCondition = function (conditionId, amount = 1, entangledStrength = undefined) {
     const condition = TEW.DATABASE.CONDITIONS[conditionId];
     if (!condition)
         return;
     const current = this.conditionStacks(conditionId);
     const max = condition.maxStacks === Infinity ? Number.MAX_SAFE_INTEGER : condition.maxStacks;
-    this._conditions[conditionId] = Math.min(current + amount, max);
+    this._conditions[conditionId] = {
+        stacks: Math.min(current + amount, max),
+        entangledStrength
+    };
 };
-Game_BattlerBase.prototype.removeCondition = function (conditionId, amount = 1) {
+Game_BattlerBase.prototype.removeCondition = function (conditionId, stacks = 1) {
     const current = this.conditionStacks(conditionId);
-    const next = current - amount;
+    const next = current - stacks;
     if (next <= 0) {
-        delete this._conditions[conditionId];
+        this.clearCondition(conditionId);
     }
     else {
-        this._conditions[conditionId] = next;
+        this._conditions[conditionId].stacks = next;
     }
 };
 Game_BattlerBase.prototype.clearCondition = function (conditionId) {
     delete this._conditions[conditionId];
     $gameMessage.add(`You lost condition: ${TEW.DATABASE.CONDITIONS[conditionId].name}.`);
+    const condition = TEW.DATABASE.CONDITIONS[conditionId];
+    if (condition.fatiguedOnRemoval) {
+        this.addCondition("FATIGUED" /* ConditionId.FATIGUED */);
+    }
+    if (condition.proneOnRemoval) {
+        this.addCondition("PRONE" /* ConditionId.PRONE */);
+    }
 };
 Game_BattlerBase.prototype.clearAllConditions = function () {
     this._conditions = {};
 };
-/**
- * Applies condition effects at turn start
- */
-Game_BattlerBase.prototype.applyConditionsTurnStart = function () {
+Game_BattlerBase.prototype.applyConditionsOnTurnStart = function () {
     let totalDamage = 0;
-    const toRemove = [];
     let conditionId;
+    console.log(this.name(), this._conditions);
     for (conditionId in this._conditions) {
         const condition = TEW.DATABASE.CONDITIONS[conditionId];
         if (!condition)
             continue;
-        // TODO DOT is not always 1
-        if (condition.effect.damagePerTurn) {
-            const damage = condition.effect.damagePerTurn * this._conditions[conditionId];
+        // Damage over time
+        if (condition.damageOverTime) {
+            let damage = this.conditionStacks(conditionId);
+            if (conditionId === "ABLAZE" /* ConditionId.ABLAZE */) {
+                damage += Math.floor(Math.random() * 10);
+                damage -= this.lowestArmorPointsByLocation() + this.paramBonus("TOUG" /* Stat.TOUG */);
+                damage = Math.max(damage, 1);
+            }
             $gameMessage.add(`You ${condition.message} for ${damage} damage.`);
             totalDamage += damage;
         }
-        // TODO some conditions require tests to be rid of
-        if (condition.removeOnTurnStart) {
-            toRemove.push(conditionId);
+        // Restrictive conditions
+        if (condition.blocksMovement) {
+            this._moveCount = 0;
+        }
+        if (condition.blocksAction) {
+            this._actionCount = 0;
+        }
+        // Auto removal
+        if (condition.removal === 0 /* ConditionRemoval.AUTO */) {
+            this.removeCondition(conditionId);
+        }
+        else if (condition.removal === 1 /* ConditionRemoval.TEST */) {
+            let removalTestResult;
+            if (condition.id === "ENTANGLED" /* ConditionId.ENTANGLED */) {
+                removalTestResult = TEW.DICE.opposedTest(this.paramByName("STRG" /* Stat.STRG */), this._conditions[conditionId].entangledStrength);
+            }
+            else {
+                removalTestResult = TEW.DICE.skillTest(this, condition.removalTest.comp, 0, false);
+            }
+            if (removalTestResult.success) {
+                this.removeCondition(conditionId, removalTestResult.sl + 1);
+            }
         }
     }
-    toRemove.forEach(id => this.clearCondition(id));
     if (totalDamage > 0) {
         this.gainHp(-totalDamage); // TODO use damage execution to trigger animations and shit (+ toughness)
-    }
+    } // TODO special effects for poison and bleeding when 0 HP remain
     return totalDamage;
 };
-Game_BattlerBase.prototype.totalConditionModifier = function () {
-    let mod = 0;
-    let conditionId;
-    for (conditionId in this._conditions) {
-        const condition = TEW.DATABASE.CONDITIONS[conditionId];
-        if (condition === null || condition === void 0 ? void 0 : condition.effect.testModifier) {
-            mod += condition.effect.testModifier * this._conditions[conditionId];
-        }
-    }
-    return mod;
+Game_BattlerBase.prototype.totalConditionModifier = function (compId = 'NONE') {
+    return Object.keys(this._conditions)
+        .map(conditionId => TEW.DATABASE.CONDITIONS[conditionId].testModifier)
+        .filter(testModifier => (testModifier === null || testModifier === void 0 ? void 0 : testModifier.comps) === undefined || (testModifier === null || testModifier === void 0 ? void 0 : testModifier.comps.includes(compId)))
+        .reduce((acc, testModifier) => acc + testModifier.mod, 0);
 };
-Game_BattlerBase.prototype.isBlockedByCondition = function () {
-    for (const conditionId in this._conditions) {
-        const condition = TEW.DATABASE.CONDITIONS[conditionId];
-        if ((condition === null || condition === void 0 ? void 0 : condition.effect.blocksAction) || (condition === null || condition === void 0 ? void 0 : condition.effect.incapacitated)) {
-            return true;
-        }
-    }
-    return false;
+Game_BattlerBase.prototype.isActionBlockedByCondition = function () {
+    return Object.keys(this._conditions)
+        .some(conditionId => TEW.DATABASE.CONDITIONS[conditionId].blocksAction);
 };
 Game_BattlerBase.prototype.isMovementBlockedByCondition = function () {
-    for (const conditionId in this._conditions) {
-        const condition = TEW.DATABASE.CONDITIONS[conditionId];
-        if ((condition === null || condition === void 0 ? void 0 : condition.effect.blocksMovement) || (condition === null || condition === void 0 ? void 0 : condition.effect.incapacitated)) {
-            return true;
-        }
-    }
-    return false;
-};
-Game_BattlerBase.prototype.mustFleeDueToCondition = function () {
-    for (const conditionId in this._conditions) {
-        const condition = TEW.DATABASE.CONDITIONS[conditionId];
-        if (condition === null || condition === void 0 ? void 0 : condition.effect.mustFlee) {
-            return true;
-        }
-    }
-    return false;
+    return Object.keys(this._conditions)
+        .some(conditionId => TEW.DATABASE.CONDITIONS[conditionId].blocksMovement);
 };
 // #endregion =========================== Game_BattlerBase ============================== //
 // ============================== //

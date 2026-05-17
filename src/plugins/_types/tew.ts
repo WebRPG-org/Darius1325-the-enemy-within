@@ -253,6 +253,17 @@ const TEW: {
             critical: boolean
         };
 
+        opposedTest?: (
+            value: number,
+            opposedValue: number,
+            modifier?: number,
+            opposedModifier?: number
+        ) => {
+            sl: number,
+            success: boolean,
+            criticalPlayer: boolean
+        };
+
         combatOpposedSkillTest?: (
             compValueAttacker: number,
             compValueDefender: number,
@@ -450,6 +461,10 @@ const TEW: {
          * @returns Whether the battler has the right competence and the effective value
          */
         getAttackCompOrDefault?: (battler: Game_BattlerBase, weaponGroup: WeaponGroup, isMelee: boolean) => {
+            /**
+             * Best competence to use for this weapon group
+             */
+            compId: string;
             /**
              * True if the battler has the competence matching weaponGroup
              */

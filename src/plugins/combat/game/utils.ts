@@ -159,14 +159,16 @@ TEW.COMBAT.isMeleeWeapon = (weapon: MeleeWeapon | RangedWeapon) => {
 
 // Get battler's stat value for combat depending on the wielded weapon's group
 TEW.COMBAT.getAttackCompOrDefault = (battler: Game_BattlerBase, weaponGroup: WeaponGroup, isMelee: boolean) => {
-    const compName = (isMelee ? 'MELEE' : 'RANGED') + '_' + TEW.DATABASE.WEAPONS.GROUP_IDS[weaponGroup];
-    if (battler.hasComp(compName)) {
+    const compId = (isMelee ? 'MELEE' : 'RANGED') + '_' + TEW.DATABASE.WEAPONS.GROUP_IDS[weaponGroup];
+    if (battler.hasComp(compId)) {
         return {
+            compId,
             match: true,
-            value: battler.comp(compName)
+            value: battler.comp(compId)
         };
     } else {
         return {
+            compId: 'NONE',
             match: false,
             value: isMelee ? battler.weas : battler.bals
         };

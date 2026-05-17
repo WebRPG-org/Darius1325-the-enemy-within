@@ -241,3 +241,23 @@ export const enum Direction {
     RIGHT = 6,
     UP = 8,
 }
+
+export const enum ConditionId {
+    ABLAZE = "ABLAZE",
+    BLEEDING = "BLEEDING",
+    BLINDED = "BLINDED",
+    DEAFENED = "DEAFENED",
+    ENTANGLED = "ENTANGLED",
+    FATIGUED = "FATIGUED",
+    POISONED = "POISONED",
+    PRONE = "PRONE",
+    STUNNED = "STUNNED",
+    SURPRISED = "SURPRISED",
+    UNCONSCIOUS = "UNCONSCIOUS"
+}
+
+export const enum ConditionRemoval {
+    AUTO,
+    TEST,
+    NONE
+}

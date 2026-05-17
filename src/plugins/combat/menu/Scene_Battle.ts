@@ -588,11 +588,11 @@ Scene_Battle.prototype.commandMove = function() {
 
 Scene_Battle.prototype.commandWalk = function() {
     // Spend a movement if possible or spend an action to move
-    if (BattleManager.moveCount > 0) {
-        BattleManager.moveCount -= 1;
+    if (BattleManager.canMove()) {
+        BattleManager.spendMove();
         this.commandWalkOrRun();
-    } else if (BattleManager.actionCount > 0) {
-        BattleManager.actionCount -= 1;
+    } else if (BattleManager.canAct()) {
+        BattleManager.spendAction();
         this.commandWalkOrRun();
     } else {
         SoundManager.playCancel();
@@ -601,8 +601,8 @@ Scene_Battle.prototype.commandWalk = function() {
 
 Scene_Battle.prototype.commandRun = function() {
     if (BattleManager.canRun()) {
-        BattleManager.moveCount -= 1;
-        BattleManager.actionCount -= 1;
+        BattleManager.spendMove();
+        BattleManager.spendAction();
         this.commandWalkOrRun();
     } else {
         SoundManager.playCancel();
@@ -635,13 +635,13 @@ Scene_Battle.prototype.commandWalkOrRun = function() {
 
 Scene_Battle.prototype.commandSwitchWeapon = function() {
     // Spend a movement if possible or spend an action to move
-    if (BattleManager.moveCount === 0 && BattleManager.actionCount === 0) {
+    if (!BattleManager.canActOrMove()) {
         SoundManager.playCancel();
     } else {
-        if (BattleManager.moveCount > 0) {
-            BattleManager.moveCount -= 1;
+        if (BattleManager.canMove()) {
+            BattleManager.spendMove();
         } else {
-            BattleManager.actionCount -= 1;
+            BattleManager.spendAction();
         }
         this._weaponsWindow.open();
         this._weaponDetailsWindow.open();

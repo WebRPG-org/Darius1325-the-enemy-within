@@ -114,10 +114,11 @@ Game_Actor.prototype.initCecile = function() {
     this.addItem('COMB', 1);
 
     // weapons
+    this.addWeapon("GARROTE");
     this.addWeapon("DAGGER");
     this.addWeapon("RAPIER");
     this.addWeapon("SLING");
-    this.equipMainHand(1);
+    this.equipMainHand(0);
 
     // armors
 

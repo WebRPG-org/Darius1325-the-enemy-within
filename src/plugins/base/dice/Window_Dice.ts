@@ -14,7 +14,7 @@ export default Window_Dice.prototype = Object.create(Window_Base.prototype);
 Window_Dice.prototype.constructor = Window_Dice;
 
 Window_Dice.prototype.initialize = function(x: number, y: number, tens: number, units: number) {
-    Window_Base.prototype.initialize.call(this, x, y, 240, 110); // temp !!
+    Window_Base.prototype.initialize.call(this, x, y, 340, 160); // temp !!
     this._tens = tens;
     this._units = units;
     setTimeout(() => {
@@ -28,7 +28,7 @@ Window_Dice.prototype.windowWidth = function() {
 };
 
 Window_Dice.prototype.windowHeight = function() {
-    return 100;
+    return 160;
 };
 
 Window_Dice.prototype.refresh = function() {
