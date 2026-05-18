@@ -2,7 +2,6 @@
 
 import TEW from "../../_types/tew";
 import { ArmorGroup, WeaponGroup, WeaponQuality } from "../../_types/enum";
-import {Game_Battler} from "../../../rmmv/objects/Game_Battler";
 import {Game_BattlerBase} from "../../base/stats/Game_BattlerBase";
 import { MeleeWeapon } from "../../_types/meleeWeapon";
 import { RangedWeapon } from "../../_types/rangedWeapon";
@@ -40,10 +39,10 @@ TEW.COMBAT.getWeaponQualityEffects = (weapon: MeleeWeapon | RangedWeapon) => {
     let slashLevel: number = 0;
     let attackBonusSL: number = 0;
     let defenceBonusSL: number = 0;
-    let bonusPA: number = 0;
-    let ignoredPA: number = 0;
+    let bonusAP: number = 0;
+    let ignoredAP: number = 0;
+    let ignoreMetalArmor = false;
     let effects: Partial<Record<keyof typeof WeaponQuality, boolean>> = {};
-    let ignoredArmorTypes: ArmorGroup[] = [];
     weapon.qualities.forEach(quality => {
         if (quality === WeaponQuality.IMPALE) {
             effects.IMPALE = true;
@@ -52,24 +51,22 @@ TEW.COMBAT.getWeaponQualityEffects = (weapon: MeleeWeapon | RangedWeapon) => {
         } else if (quality === WeaponQuality.UNDAMAGING) {
             effects.UNDAMAGING = true;
         } else if (quality === WeaponQuality.SHIELD_1) {
-            bonusPA += 1;
+            bonusAP += 1;
         } else if (quality === WeaponQuality.SHIELD_2) {
-            bonusPA += 2;
+            bonusAP += 2;
         } else if (quality === WeaponQuality.SHIELD_3) {
-            bonusPA += 3;
+            bonusAP += 3;
         } else if (quality === WeaponQuality.SHIELD_4) {
-            bonusPA += 4;
+            bonusAP += 4;
         } else if (quality === WeaponQuality.SHIELD_5) {
-            bonusPA += 5;
+            bonusAP += 5;
         } else if (quality === WeaponQuality.DEFENSIVE) {
             defenceMod += 10;
         } else if (quality === WeaponQuality.HACK) {
-            ignoredPA += 1;
+            ignoredAP += 1;
         } else if (quality === WeaponQuality.PENETRATING) {
-            ignoredArmorTypes.push(ArmorGroup.CHAINMAIL);
-            ignoredArmorTypes.push(ArmorGroup.BREASTPLATE);
-            ignoredArmorTypes.push(ArmorGroup.PLATE);
-            ignoredPA += 1;
+            ignoreMetalArmor = true;
+            ignoredAP += 1;
         } else if (quality === WeaponQuality.PRECISE) {
             attackBonusSL += 1;
         } else if (quality === WeaponQuality.PUMMEL) {
@@ -110,9 +107,9 @@ TEW.COMBAT.getWeaponQualityEffects = (weapon: MeleeWeapon | RangedWeapon) => {
         defenceMod,
         attackBonusSL,
         defenceBonusSL,
-        bonusPA,
-        ignoredPA,
-        ignoredArmorTypes,
+        bonusAP,
+        ignoredAP,
+        ignoreMetalArmor,
         effects,
         slashLevel
     };

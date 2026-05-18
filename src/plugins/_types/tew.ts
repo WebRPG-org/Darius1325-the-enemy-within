@@ -411,13 +411,13 @@ const TEW: {
             defenceBonusSL: number;
 
             /** Bonus armor points when defending */
-            bonusPA: number;
+            bonusAP: number;
 
             /** Ignored armor points when attacking */
-            ignoredPA: number;
+            ignoredAP: number;
 
-            /** Ignored armor types when attacking */
-            ignoredArmorTypes: ArmorGroup[];
+            /** Whether this weapon penetrates metal armor */
+            ignoreMetalArmor: boolean;
 
             /** Standalone effects to be checked for at different steps of the battle phase */
             effects: Partial<Record<keyof typeof WeaponQuality, boolean>>;

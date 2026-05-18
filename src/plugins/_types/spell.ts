@@ -9,7 +9,26 @@
 // Imports
 // ----------------------
 
-import { SpellDomain, SpellDuration, SpellRange, SpellTarget, SpellTargetRadius, SpellType } from "./enum";
+import { Game_BattlerBase } from "../base/stats/Game_BattlerBase";
+import { ConditionId, SpellDomain, SpellDuration, SpellEffectType, SpellRange, SpellTarget, SpellTargetRadius, SpellType, Stat } from "./enum";
+
+export type SpellEffect = {
+    type: SpellEffectType.MAGIC_MISSILE;
+
+    damage: number;
+} | {
+    type: SpellEffectType.SCALING_DAMAGE;
+
+    stat: Stat;
+} | {
+    type: SpellEffectType.CONDITION;
+
+    conditionId: ConditionId;
+} | {
+    type: SpellEffectType.SPECIAL;
+
+    handler: (caster: Game_BattlerBase, target: Game_BattlerBase, sl: number) => void;
+};
 
 /**
  * Spell object type
@@ -97,4 +116,8 @@ export type Spell = {
      * Spell description
      */
     desc: string;
+    /**
+     * Specifies how to apply the spell
+     */
+    effect: SpellEffect;
 };

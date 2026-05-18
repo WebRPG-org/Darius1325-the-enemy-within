@@ -1,6 +1,6 @@
 // $PluginCompiler TEW_Combat.js
 
-import { BodyLocation, ConditionId, SpellRange, SpellTarget, SpellTargetRadius, Stat } from "../../_types/enum";
+import { BodyLocation, ConditionId, SpellEffectType, SpellRange, SpellTarget, SpellTargetRadius, Stat, WeaponGroup } from "../../_types/enum";
 import { Spell } from "../../_types/spell";
 import TEW from "../../_types/tew";
 import { Game_BattlerBase } from "../../base/stats/Game_BattlerBase";
@@ -331,17 +331,23 @@ Game_Action.prototype.applyWeaponAttack = function(target) {
     );
 
     // Special weapon quality checks
-    // Impale
+    // Impale - critical hit on tens
     if (attackerWeaponEffects.effects.IMPALE) {
         if (combatResult.rollAttacker % 10 === 0) {
             combatResult.criticalAttacker = true;
         }
     }
-    // Damaging
+    // Damaging - SL can be replaced with unit die if higher
     if (attackerWeaponEffects.effects.DAMAGING) {
-        const damagingSL = (combatResult.rollAttacker % 10) || 10; // 10 SL if roll is a multiple of 10
+        const damagingSL = (combatResult.rollAttacker % 10) || 10; // 10 SL if roll ends in 0
         if (damagingSL > combatResult.slAttacker) {
             combatResult.slAttacker = damagingSL;
+        }
+    }
+    // Dangerous - ??? on a failed roll ending in 9
+    if (attackerWeaponEffects.effects.DANGEROUS) {
+        if (!combatResult.success && combatResult.rollAttacker % 10 === 9) {
+            // TODO maladresse ??
         }
     }
 
@@ -361,16 +367,28 @@ Game_Action.prototype.applyWeaponAttack = function(target) {
         // TODO Check weapon effects on crit (make a list)
         // TODO Check for crits
 
-        //   Check location
+        // Check location
         const hitLocation: BodyLocation = BodyLocation.HEAD; // TODO location table
+
+        // Armor and armor penetration
+        let defenderArmorPoints: number = target.armorPointsAtLocation(location, attackerWeaponEffects.ignoredAP, attackerWeaponEffects.ignoreMetalArmor);
+        if (attackerWeaponEffects.effects.UNDAMAGING) {
+            defenderArmorPoints *= 2;
+        }
 
         // Compute damage
         //   Add weapon bonus + stat bonus + opposed DR
         //   Remove defender's toug + TODO armor points
-        const damage = combatResult.slAttacker - combatResult.slDefender
+        let damage = combatResult.slAttacker - combatResult.slDefender
             + attackerWeapon.damage + (attackerWeapon.strBonus ? attacker.paramBonus(Stat.STRG) : 0)
-            - target.paramBonus(Stat.TOUG);
-        this.executeDamage(target, 1);
+            - target.paramBonus(Stat.TOUG) - defenderArmorPoints;
+
+        // Impact - add unit die to damage
+        if (attackerWeaponEffects.effects.IMPACT) {
+            damage += (combatResult.rollAttacker % 10) || 10;
+        }
+
+        this.executeDamage(target, Math.max(damage, 1));
             
         //   Check weapon effects based on location (make a list)
         if (attackerWeaponEffects.effects.PUMMEL && hitLocation === BodyLocation.HEAD) {
@@ -381,6 +399,14 @@ Game_Action.prototype.applyWeaponAttack = function(target) {
         }
         if (attackerWeaponEffects.effects.ENTANGLE) {
             target.addCondition(ConditionId.ENTANGLED, 1, attacker.paramBonus(Stat.STRG));
+        }
+        if (!isMeleeWeapon) {
+            if (attackerWeapon.group === WeaponGroup.BLACKPOWDER) {
+                const brokenTestResult = TEW.DICE.skillTest(target, 'CALM', 20);
+                if (!brokenTestResult.success) {
+                    // add broken condition
+                }
+            }
         }
 
         // TODO Lookup crit table (help me)
@@ -437,10 +463,25 @@ Game_Action.prototype.applySpell = function(target) {
     // Resolve spell
     if (this._subjectAbilityRoll.sl >= spell.cn) {
         // TODO Prompt for spell bonus effects (e.g. additional targets, increased range... etc)
+        // handled by spell effect ?
 
         // TODO Resolve spell domain effects (e.g. Chamon ignoring metal armor)
 
-        // TODO apply to target(s)
+        switch (spell.effect.type) {
+            case SpellEffectType.MAGIC_MISSILE:
+                const damage = this._subjectAbilityRoll.sl + spell.effect.damage
+                    - target.paramBonus(Stat.TOUG);
+                this.executeDamage(target, Math.max(damage, 1));
+                break;
+            case SpellEffectType.SCALING_DAMAGE:
+                break;
+            case SpellEffectType.CONDITION:
+                target.addCondition(spell.effect.conditionId);
+                break;
+            case SpellEffectType.SPECIAL:
+                spell.effect.handler(attacker, target, this._subjectAbilityRoll.sl);
+                break;
+        }
     }
     // GIGA TODO counterspell
 };

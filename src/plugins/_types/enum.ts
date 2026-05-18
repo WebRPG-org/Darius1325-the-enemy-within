@@ -235,6 +235,13 @@ export const enum SpellDuration {
     WILL = "Willpower",
 }
 
+export const enum SpellEffectType {
+    MAGIC_MISSILE,
+    SCALING_DAMAGE,
+    CONDITION,
+    SPECIAL
+}
+
 export const enum Direction {
     DOWN = 2,
     LEFT = 4,

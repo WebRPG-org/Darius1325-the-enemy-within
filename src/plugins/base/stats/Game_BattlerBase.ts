@@ -1,6 +1,6 @@
 // $PluginCompiler TEW_Base.js
 
-import {BodyLocation, ConditionId, ConditionRemoval, Stat, StatName, WeaponGroup} from "../../_types/enum";
+import {ArmorGroup, ArmorQuality, BodyLocation, ConditionId, ConditionRemoval, Stat, StatName, WeaponGroup} from "../../_types/enum";
 import TEW from "../../_types/tew";
 import {Armor} from "../../_types/armor";
 
@@ -82,6 +82,7 @@ export interface Game_BattlerBase {
     unequipArmors: (armorIds: string[]) => void;
     armorsAtLocation: (location: BodyLocation) => Armor[];
     armorsAtLocations: (locations: BodyLocation[]) => Armor[];
+    armorPointsAtLocation: (location: BodyLocation, ignoredAP: number, ignoreMetalArmor: boolean) => number;
     lowestArmorPointsByLocation: () => number;
     sortArmors: () => void;
     sortEquippedArmors: () => void;
@@ -89,6 +90,17 @@ export interface Game_BattlerBase {
     ammoType: (ammoId: string) => number;
     hasAmmo: (ammoId: string) => boolean;
     addAmmo: (ammoId: string, quantity?: number) => void;
+
+    conditionStacks: (conditionId: ConditionId) => number;
+    hasCondition: (conditionId: ConditionId) => boolean;
+    addCondition: (conditionId: ConditionId, stacks: number, entangledStrength?: number) => void;
+    removeCondition: (conditionId: ConditionId, stacks: number) => void;
+    clearCondition: (conditionId: ConditionId) => void;
+    clearAllConditions: () => void;
+    applyConditionsOnTurnStart: () => number;
+    totalConditionModifier: (compId: string) => number;
+    isMovementBlockedByCondition: () => boolean;
+    isActionBlockedByCondition: () => boolean;
 }
 
 // $StartCompilation
@@ -423,6 +435,32 @@ Game_BattlerBase.prototype.armorsAtLocations = function(locations: BodyLocation[
         .filter((armor: Armor) => armor.locations.some(location => locations.includes(location)));
 };
 
+// Use ignoredAP = -1 to ignore all AP
+Game_BattlerBase.prototype.armorPointsAtLocation = function(location: BodyLocation, ignoredAP = 0, ignoreMetalArmor = false) {
+    let armors: Armor[] = this.armorsAtLocation(location);
+    const sumArmorPoints = (armors: Armor[]) => armors.reduce((acc: number, armor) => acc + armor.ap, 0);
+
+    if (ignoreMetalArmor) {
+
+        const nonMetallicArmors = armors.filter(armor =>
+            ![ArmorGroup.BREASTPLATE, ArmorGroup.PLATE, ArmorGroup.CHAINMAIL].includes(armor.group));
+
+        if (ignoredAP === -1) { // ignore all metal armor
+            return sumArmorPoints(nonMetallicArmors);
+
+        } else if (ignoredAP > 0) { // ignore only some metal armor points
+            const metallicArmors = armors.filter(armor =>
+                armor.group === ArmorGroup.BREASTPLATE ||
+                armor.group === ArmorGroup.CHAINMAIL ||
+                armor.group === ArmorGroup.PLATE);
+            return sumArmorPoints(nonMetallicArmors)
+                + Math.max(0, sumArmorPoints(metallicArmors) - ignoredAP);
+        }
+    } else {
+        return Math.max(0, sumArmorPoints(armors) - ignoredAP);
+    }
+};
+
 Game_BattlerBase.prototype.lowestArmorPointsByLocation = function() {
     let aggregator: Record<number, number> = {};
     aggregator[BodyLocation.ARMS] = 0;
@@ -485,14 +523,14 @@ Game_BattlerBase.prototype.hasCondition = function(conditionId: ConditionId): bo
     return this.conditionStacks(conditionId) > 0;
 };
 
-Game_BattlerBase.prototype.addCondition = function(conditionId: ConditionId, amount = 1, entangledStrength = undefined): void {
+Game_BattlerBase.prototype.addCondition = function(conditionId: ConditionId, stacks = 1, entangledStrength = undefined): void {
     const condition = TEW.DATABASE.CONDITIONS[conditionId];
     if (!condition) return;
 
     const current = this.conditionStacks(conditionId);
     const max = condition.maxStacks === Infinity ? Number.MAX_SAFE_INTEGER : condition.maxStacks;
     this._conditions[conditionId] = {
-        stacks: Math.min(current + amount, max),
+        stacks: Math.min(current + stacks, max),
         entangledStrength
     };
 };
