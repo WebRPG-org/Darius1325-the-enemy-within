@@ -1263,6 +1263,7 @@ TEW.DATABASE.CONDITIONS = {
     ABLAZE: {
         id: "ABLAZE" /* ConditionId.ABLAZE */,
         name: "Ablaze",
+        icon: 64,
         message: "burned",
         description: "You are on fire! You suffer 1 Wound per stack at the start of your turn, ignoring Armour Points. You may spend your Action to attempt an Athletics Test (SL 0) to extinguish the flames.",
         maxStacks: Infinity,
@@ -3859,7 +3860,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You gain +1 Armour Point to all Hit Locations as you wrap yourself in a protective swathe of magic."
+        desc: "You gain +1 Armor Point to all Hit Locations as you wrap yourself in a protective swathe of magic.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     AETHYRIC_ARMS: {
         name: "Aethyric Arms",
@@ -3872,7 +3877,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You create a melee weapon with a Damage equal to your WILLpower Bonus. This may take any form, and so use any Melee Skill you may possess. The weapon counts as Magical."
+        desc: "You create a melee weapon with a Damage equal to your Willpower Bonus. This may take any form, and so use any Melee Skill you may possess. The weapon counts as Magical.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     ARROW_SHIELD: {
         name: "Arrow Shield",
@@ -3889,7 +3898,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "Any missiles containing organic matter, such as arrows with wooden shafts, are automatically destroyed if they pass within the Area of Effect, causing no damage to their target. Missiles comprising only inorganic matter, such as throwing knives or pistol shots, are unaffected."
+        desc: "Any missiles containing organic matter, such as arrows with wooden shafts, are automatically destroyed if they pass within the Area of Effect, causing no damage to their target. Missiles comprising only inorganic matter, such as throwing knives or pistol shots, are unaffected.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     BLAST: {
         name: "Blast",
@@ -3906,7 +3919,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "You channel magic into an explosive blast. This is a magic missile with Damage +3 that targets everyone in the Area of Effect."
+        desc: "You channel magic into an explosive blast. This is a magic missile with Damage +3 that targets everyone in the Area of Effect.",
+        effect: {
+            type: 0 /* SpellEffectType.MAGIC_MISSILE */,
+            damage: 3,
+        }
     },
     BOLT: {
         name: "Bolt",
@@ -3922,7 +3939,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "You channel magic into a damaging bolt. Bolt is a magic missile with a Damage of +4."
+        desc: "You channel magic into a damaging bolt. Bolt is a magic missile with a Damage of +4.",
+        effect: {
+            type: 0 /* SpellEffectType.MAGIC_MISSILE */,
+            damage: 4,
+        }
     },
     BREATH: {
         name: "Breath",
@@ -3938,7 +3959,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "You immediately make a Breath attack, as if you had spent 2 Advantage to activate the Breath Creature Trait. Breath is a magic missile with a Damage equal to your Toughness Bonus. The GM decides which type of Breath attack best suits your Arcane Magic Talent."
+        desc: "You immediately make a Breath attack, as if you had spent 2 Advantage to activate the Breath Creature Trait. Breath is a magic missile with a Damage equal to your Toughness Bonus. The GM decides which type of Breath attack best suits your Arcane Magic Talent.",
+        effect: {
+            type: 1 /* SpellEffectType.SCALING_DAMAGE */,
+            stat: "TOUG" /* Stat.TOUG */,
+        }
     },
     CHAIN_ATTACK: {
         name: "Chain Attack",
@@ -3954,7 +3979,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "You channel a twisting spur of rupturing magic into your target. This is a magic missile with a Damage of +4. If Chain Attack reduces a target to 0 Wounds, it leaps to another target within the spell's initial range, and within WILLpower Bonus yards of the previous target, inflicting the same Damage again. It may leap a maximum number of times equal to your WILLpower Bonus. For every +2 SL achieved, it may chain to an additional target."
+        desc: "You channel a twisting spur of rupturing magic into your target. This is a magic missile with a Damage of +4. If Chain Attack reduces a target to 0 Wounds, it leaps to another target within the spell's initial range, and within WILLpower Bonus yards of the previous target, inflicting the same Damage again. It may leap a maximum number of times equal to your WILLpower Bonus. For every +2 SL achieved, it may chain to an additional target.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     CORROSIVE_BLOOD: {
         name: "Bolt",
@@ -3967,7 +3996,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You infuse yourself with magic, lending your blood a fearsome potency. You gain the Corrosive Blood Creature Trait."
+        desc: "You infuse yourself with magic, lending your blood a fearsome potency. You gain the Corrosive Blood Creature Trait.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     DARK_VISION: {
         name: "Dark Vision",
@@ -3980,7 +4013,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You boost your Second Sight to assist your mundane senses. While the spell is active, gain the Dark Vision Creature Trait."
+        desc: "You boost your Second Sight to assist your mundane senses. While the spell is active, gain the Dark Vision Creature Trait.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     DISTRACTING: {
         name: "Distracting",
@@ -3993,7 +4030,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You wreathe yourself in magic, which swirls around you, distracting your foes. While the spell is active, gain the Distracting Creature Trait."
+        desc: "You wreathe yourself in magic, which swirls around you, distracting your foes. While the spell is active, gain the Distracting Creature Trait.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     DOME: {
         name: "Dome",
@@ -4010,7 +4051,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You create a dome of magical energy overhead, blocking incoming attacks. Anyone within the Area of Effect gains the Ward (6+) Creature Trait against magical or ranged attacks originating outside the dome. Those within may attack out of the dome as normal, and the dome does not impede movement."
+        desc: "You create a dome of magical energy overhead, blocking incoming attacks. Anyone within the Area of Effect gains the Ward (6+) Creature Trait against magical or ranged attacks originating outside the dome. Those within may attack out of the dome as normal, and the dome does not impede movement.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     DROP: {
         name: "Drop",
@@ -4026,7 +4071,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "You channel magic into an object being held by an opponent. This could be a weapon, a rope, or someone's hand. Unless a Challenging (+0) Dexterity Test is passed, the item is dropped. For every +2 SL you may impose an additional -10 on the Dexterity Test."
+        desc: "You channel magic into an object being held by an opponent. This could be a weapon, a rope, or someone's hand. Unless a Challenging (+0) Dexterity Test is passed, the item is dropped. For every +2 SL you may impose an additional -10 on the Dexterity Test.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     ENTANGLE: {
         name: "Entangle",
@@ -4042,9 +4091,16 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Special" /* SpellDuration.SPECIAL */
         },
-        desc: "Using magic, you entrap your target, wrapping them in whatever suits your Lore: vines, shadows, their own clothing... Your target gains one Entangled Condition with a Strength equal to your Intelligence. For every +2 SL, you may give the target +1 additional Entangled Condition. The spell lasts until all Entangled Conditions are removed."
+        desc: "Using magic, you entrap your target, wrapping them in whatever suits your Lore: vines, shadows, their own clothing... Your target gains one Entangled Condition with a Strength equal to your Intelligence. For every +2 SL, you may give the target +1 additional Entangled Condition. The spell lasts until all Entangled Conditions are removed.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, target, sl) => {
+                const stacks = 1 + Math.floor(sl / 2);
+                target.addCondition("ENTANGLED" /* ConditionId.ENTANGLED */, stacks, caster.paramByName("INTL" /* Stat.INTL */));
+            },
+        }
     },
-    FEARWOME: {
+    FEARSOME: {
         name: "Fearsome",
         type: 0 /* SpellType.SPELL */,
         domain: "Arcane" /* SpellDomain.ARCANE */,
@@ -4055,7 +4111,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "Shrouding yourself in magic, you become fearsome and intimidating. Gain Fear 1. For every +3 SL, you may increase your Fear value by one."
+        desc: "Shrouding yourself in magic, you become fearsome and intimidating. Gain Fear 1. For every +3 SL, you may increase your Fear value by one.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     MAGIC_SHIELD: {
         name: "Magic Shield",
@@ -4068,7 +4128,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You encase yourself in bands of protective magic. While the spell is active, add +Willpower Bonus SL to any dispel attempts you make."
+        desc: "You encase yourself in bands of protective magic. While the spell is active, add +Willpower Bonus SL to any dispel attempts you make.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     MUNDANE_AURA: {
         name: "Mundane Aura",
@@ -4082,7 +4146,11 @@ TEW.DATABASE.SPELLS.SET = {
             type: "Willpower" /* SpellDuration.WILL */,
             multiplier: 10
         },
-        desc: "You drain all the Winds of Magic from within your body and your possessions, removing any magical aura. For the duration of the spell you appear mundane to the Magical Sense Talent and similar. You effectively have no magical ability and your magical nature cannot be detected by any means. While this spell is in effect, you cannot cast any other spells. Mundane Aura is immediately dispelled if you make a Channelling Test."
+        desc: "You drain all the Winds of Magic from within your body and your possessions, removing any magical aura. For the duration of the spell you appear mundane to the Magical Sense Talent and similar. You effectively have no magical ability and your magical nature cannot be detected by any means. While this spell is in effect, you cannot cast any other spells. Mundane Aura is immediately dispelled if you make a Channelling Test.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     PUSH: {
         name: "Push",
@@ -4095,7 +4163,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "All living creatures within Willpower Bonus yards are pushed back your Willpower Bonus in yards and gain the Prone Condition. If this brings them into contact with a wall or other large obstacle, they take Damage equal to the distance travelled in yards. For every +2 SL, you may push creatures back another Willpower Bonus in yards."
+        desc: "All living creatures within Willpower Bonus yards are pushed back your Willpower Bonus in yards and gain the Prone Condition. If this brings them into contact with a wall or other large obstacle, they take Damage equal to the distance travelled in yards. For every +2 SL, you may push creatures back another Willpower Bonus in yards.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     TELEPORT: {
         name: "Teleport",
@@ -4108,7 +4180,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "Using magic, you can teleport up to your Willpower Bonus in yards. This movement allows you to traverse gaps, avoid perils and pitfalls, and ignore obstacles. For every +2 SL you may increase the distance travelled by your Willpower Bonus in yards."
+        desc: "Using magic, you can teleport up to your Willpower Bonus in yards. This movement allows you to traverse gaps, avoid perils and pitfalls, and ignore obstacles. For every +2 SL you may increase the distance travelled by your Willpower Bonus in yards.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     TERRIFYING: {
         name: "Terrifying",
@@ -4121,7 +4197,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You gain the Terror (1) Creature Trait."
+        desc: "You gain the Terror (1) Creature Trait.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     WARD: {
         name: "Ward",
@@ -4134,7 +4214,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You wrap yourself in protective magic, gaining the Ward (9+) Creature Trait."
+        desc: "You wrap yourself in protective magic, gaining the Ward (9+) Creature Trait.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     ANIMAL_FRIEND: {
         name: "Animal Friend",
@@ -4151,7 +4235,11 @@ TEW.DATABASE.SPELLS.SET = {
             type: "Number" /* SpellDuration.NUMBER */,
             duration: 600
         },
-        desc: "You make friends with a creature that is smaller than you and possesses the Bestial Creature Trait. The animal trusts you completely and regards you as a friend."
+        desc: "You make friends with a creature that is smaller than you and possesses the Bestial Creature Trait. The animal trusts you completely and regards you as a friend.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     BEARINGS: {
         name: "Bearings",
@@ -4167,7 +4255,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "You sense the influx of the Winds of Magic from their source. You know which direction North is."
+        desc: "You sense the influx of the Winds of Magic from their source. You know which direction North is.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     DAZZLE: {
         name: "Dazzle",
@@ -4183,7 +4275,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "The target gains 1 Blinded Condition, and gains 1 Blinded Condition at the start of each round for the duration of the spell."
+        desc: "The target gains 1 Blinded Condition, and gains 1 Blinded Condition at the start of each round for the duration of the spell.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     CAREFUL_STEP: {
         name: "Careful Step",
@@ -4200,7 +4296,11 @@ TEW.DATABASE.SPELLS.SET = {
             type: "Willpower" /* SpellDuration.WILL */,
             multiplier: 10
         },
-        desc: "The magic flowing through your feet ensures any organic matter you tread upon remains undamaged: twigs do not break, grass springs back to its original position, and even delicate flowers are unharmed. Those seeking to use the Track skill to pursue you through rural terrain suffer a -30 penalty to their Tests."
+        desc: "The magic flowing through your feet ensures any organic matter you tread upon remains undamaged: twigs do not break, grass springs back to its original position, and even delicate flowers are unharmed. Those seeking to use the Track skill to pursue you through rural terrain suffer a -30 penalty to their Tests.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     DART: {
         name: "Dart",
@@ -4216,7 +4316,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "You cause a small dart of magical energy to fly from your fingers. This is a magic missile with a Damage of +0."
+        desc: "You cause a small dart of magical energy to fly from your fingers. This is a magic missile with a Damage of +0.",
+        effect: {
+            type: 0 /* SpellEffectType.MAGIC_MISSILE */,
+            damage: 0,
+        }
     },
     DRAIN: {
         name: "Drain",
@@ -4232,7 +4336,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "You touch your targets, draining their life. This counts as a magic missile with Damage +0 that ignores Armour Points. You then Heal 1 Wound."
+        desc: "You touch your targets, draining their life. This counts as a magic missile with Damage +0 that ignores Armour Points. You then Heal 1 Wound.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     EAVESDROP: {
         name: "Eavesdrop",
@@ -4249,7 +4357,11 @@ TEW.DATABASE.SPELLS.SET = {
             type: "Initiative Bonus" /* SpellDuration.INIT_BONUS */,
             multiplier: 10
         },
-        desc: "You can hear what your targets say as if you were standing right next to them."
+        desc: "You can hear what your targets say as if you were standing right next to them.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     GUST: {
         name: "Gust",
@@ -4265,7 +4377,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "You create a brief gust of wind, strong enough to blow out a candle, cause an open door to slam, or blow a few pages to the floor."
+        desc: "You create a brief gust of wind, strong enough to blow out a candle, cause an open door to slam, or blow a few pages to the floor.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     LIGHT: {
         name: "Light",
@@ -4282,7 +4398,11 @@ TEW.DATABASE.SPELLS.SET = {
             type: "Willpower" /* SpellDuration.WILL */,
             multiplier: 10
         },
-        desc: "You create a small light, roughly equivalent to a torch, which glows from your hand, staff or some other part of your person. While the spell is active, you may choose to increase the illumination to that of a lantern, or decrease it to that of a candle, if you pass a Average (+20) Channelling Test."
+        desc: "You create a small light, roughly equivalent to a torch, which glows from your hand, staff or some other part of your person. While the spell is active, you may choose to increase the illumination to that of a lantern, or decrease it to that of a candle, if you pass a Average (+20) Channelling Test.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     MAGIC_FLAME: {
         name: "Magic Flame",
@@ -4298,7 +4418,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You kindle a small flame that flickers to life in the palm of your hand. It will not burn you, but will emit heat and set flammable objects alight, like a natural flame."
+        desc: "You kindle a small flame that flickers to life in the palm of your hand. It will not burn you, but will emit heat and set flammable objects alight, like a natural flame.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     MARSH_LIGHTS: {
         name: "Marsh Lights",
@@ -4315,7 +4439,11 @@ TEW.DATABASE.SPELLS.SET = {
             type: "Willpower" /* SpellDuration.WILL */,
             multiplier: 10
         },
-        desc: "You cast your voice at a point within Willpower yards, regardless of line of sight. Your voice sounds from this point, and all within earshot will hear it."
+        desc: "You cast your voice at a point within Willpower yards, regardless of line of sight. Your voice sounds from this point, and all within earshot will hear it.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     OPEN_LOCK: {
         name: "Open Lock",
@@ -4331,7 +4459,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "One non-magical lock you touch opens."
+        desc: "One non-magical lock you touch opens.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     PURIFY_WATER: {
         name: "Purify Water",
@@ -4347,7 +4479,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "You purify all water within a receptacle, such as a water flask, stein, or jug. All non-magical impurities, such as poison or contaminants are removed, leaving crisp, clear, potable water. If the vessel contained another liquid that is predominantly water - such as ale, or wine - this is also purified, turning into delicious, pure, non-alcoholic water."
+        desc: "You purify all water within a receptacle, such as a water flask, stein, or jug. All non-magical impurities, such as poison or contaminants are removed, leaving crisp, clear, potable water. If the vessel contained another liquid that is predominantly water - such as ale, or wine - this is also purified, turning into delicious, pure, non-alcoholic water.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     SLEEP: {
         name: "Sleep",
@@ -4363,7 +4499,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You touch your opponent, sending them into a deep sleep. If the target has the Prone Condition, they gain the Unconscious Condition as they fall asleep. They remain unconscious for the duration, although loud noises or being moved or jostled will awaken them instantly. If your targets are standing or sitting when affected, they start themselves awake as they hit the ground, gaining the Prone Condition, but remaining conscious. If your targets are not resisting, and are suitably tired, they will, at the spell's end, pass into a deep and restful sleep."
+        desc: "You touch your opponent, sending them into a deep sleep. If the target has the Prone Condition, they gain the Unconscious Condition as they fall asleep. They remain unconscious for the duration, although loud noises or being moved or jostled will awaken them instantly. If your targets are standing or sitting when affected, they start themselves awake as they hit the ground, gaining the Prone Condition, but remaining conscious. If your targets are not resisting, and are suitably tired, they will, at the spell's end, pass into a deep and restful sleep.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     SHOCK: {
         name: "Shock",
@@ -4379,7 +4519,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "Your target receives 1 Stunned Condition."
+        desc: "Your target receives 1 Stunned Condition.",
+        effect: {
+            type: 2 /* SpellEffectType.CONDITION */,
+            conditionId: "STUNNED" /* ConditionId.STUNNED */,
+        }
     },
     SOUNDS: {
         name: "Sounds",
@@ -4395,7 +4539,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You create small noises nearby. You can create quiet, indistinct noises that sound as if they come from a specific location within range, regardless of line of sight. The noises can evoke something specific, such as footsteps, whispers or the howl of an animal, but nothing so distinct that it might convey a message. While the spell is active, you may control the sounds by passing a Average (+20) Channelling Test. A success allows you to move the sounds to another point within range, or to increase or decrease their volume."
+        desc: "You create small noises nearby. You can create quiet, indistinct noises that sound as if they come from a specific location within range, regardless of line of sight. The noises can evoke something specific, such as footsteps, whispers or the howl of an animal, but nothing so distinct that it might convey a message. While the spell is active, you may control the sounds by passing a Average (+20) Channelling Test. A success allows you to move the sounds to another point within range, or to increase or decrease their volume.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     WARNING: {
         name: "Warning",
@@ -4411,7 +4559,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "You channel magic into an object, noticing immediately if it has been poisoned or trapped."
+        desc: "You channel magic into an object, noticing immediately if it has been poisoned or trapped.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     AQSHYS_AEGIS: {
         name: "Aqshy's Aegis",
@@ -4424,7 +4576,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You wrap yourself in a fiery cloak of Aqshy , which channels flame into the Aegis. You are completely immune to damage from non-magical fire, including the breath attacks of monsters, and ignore any Ablaze Conditions you receive. You receive the Ward (9+) Creature Trait against magical fire attacks including spells from the Lore of Fire."
+        desc: "You wrap yourself in a fiery cloak of Aqshy, which channels flame into the Aegis. You are completely immune to damage from non-magical fire, including the breath attacks of monsters, and ignore any Ablaze Conditions you receive. You receive the Ward (9+) Creature Trait against magical fire attacks including spells from the Lore of Fire.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     CAUTERISE: {
         name: "Cauterise",
@@ -4440,7 +4596,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Instant" /* SpellDuration.INSTANT */
         },
-        desc: "Channelling Aqshy through your hands you lay them on an ally's wounds. Immediately heal 1d10 Wounds and remove all Bleeding Conditions. Further, the wounds will not become infected. Targets without the Arcane Magic (Fire) Talent, must pass a Challenging (+0) Cool Test or scream in agony.. If Failed by -6 or more SL, the target gains the Unconscious Condition and is permanently scarred, waking up 1d10 hours later"
+        desc: "Channelling Aqshy through your hands you lay them on an ally's wounds. Immediately heal 1d10 Wounds and remove all Bleeding Conditions. Further, the wounds will not become infected. Targets without the Arcane Magic (Fire) Talent, must pass a Challenging (+0) Cool Test or scream in agony.. If Failed by -6 or more SL, the target gains the Unconscious Condition and is permanently scarred, waking up 1d10 hours later",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     CROWN_OF_FLAME: {
         name: "Crown of Flame",
@@ -4453,7 +4613,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You channel Aqshy into a majestic crown of inspiring fire about your brow. Gain the Fear (1) Trait and +1 War Leader Talent while the spell is active. For every +2 SL, you may increase your Fear value by +1, or take War Leader Talent again. Furthermore, gain a bonus of +10 on all attempts to Channel and Cast with Aqshy while the spell is in effect."
+        desc: "You channel Aqshy into a majestic crown of inspiring fire about your brow. Gain the Fear (1) Trait and +1 War Leader Talent while the spell is active. For every +2 SL, you may increase your Fear value by +1, or take War Leader Talent again. Furthermore, gain a bonus of +10 on all attempts to Channel and Cast with Aqshy while the spell is in effect.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     FLAMING_HEARTS: {
         name: "Flaming Hearts",
@@ -4470,7 +4634,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "Your voice takes on a rich resonance, echoing with Aqshy's fiery passion. Affected allies lose all Broken and Fatigued Conditions, and gain +1 Drilled, Fearless and Stout-hearted Talent while the spell is in effect."
+        desc: "Your voice takes on a rich resonance, echoing with Aqshy's fiery passion. Affected allies lose all Broken and Fatigued Conditions, and gain +1 Drilled, Fearless and Stout-hearted Talent while the spell is in effect.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     FIREWALL: {
         name: "Firewall",
@@ -4487,7 +4655,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You channel a fiery streak of Aqshy , creating a wall of flame. The Firewall is Willpower Bonus yards wide, and 1 yard deep. For every +2 SL you may extend the length of the Firewall by +Willpower Bonus yards. Anyone crossing the firewall gains 1 Ablaze condition and suffers a hit with a Damage equal to your Willpower Bonus, handled like a magical missile."
+        desc: "You channel a fiery streak of Aqshy , creating a wall of flame. The Firewall is Willpower Bonus yards wide, and 1 yard deep. For every +2 SL you may extend the length of the Firewall by +Willpower Bonus yards. Anyone crossing the firewall gains 1 Ablaze condition and suffers a hit with a Damage equal to your Willpower Bonus, handled like a magical missile.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     GREAT_FIRES_OF_UZHUL: {
         name: "Great Fires of U'Zhul",
@@ -4504,7 +4676,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You hurl a great, explosive blast of Aqshy into an enemy, which erupts into a furious blaze, burning with the heat of a forge. This is a magical missile with Damage +10 that ignores Armour Points and inflicts +2 Ablaze Conditions and the Prone Condition on a target. Everyone within the Area of Effect of that target suffers a Damage +5 hit ignoring Armour Points, and must pass a Dodge Test or also gain +1 Ablaze Condition. The spell stops behaving like a magic missile as the fire continues to burn in the Area of Effect for the duration. Anyone within the Area of Effect at the start of a round suffers 1d10+6 Damage, ignoring APs, and gains +1 Ablaze Condition."
+        desc: "You hurl a great, explosive blast of Aqshy into an enemy, which erupts into a furious blaze, burning with the heat of a forge. This is a magical missile with Damage +10 that ignores Armour Points and inflicts +2 Ablaze Conditions and the Prone Condition on a target. Everyone within the Area of Effect of that target suffers a Damage +5 hit ignoring Armour Points, and must pass a Dodge Test or also gain +1 Ablaze Condition. The spell stops behaving like a magic missile as the fire continues to burn in the Area of Effect for the duration. Anyone within the Area of Effect at the start of a round suffers 1d10+6 Damage, ignoring APs, and gains +1 Ablaze Condition.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     FLAMING_SWORD_OF_RHUIN: {
         name: "Flaming Sword of Rhuin",
@@ -4520,7 +4696,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You wreathe a sword in magical flames. The weapon has Damage +6 and the Impact Quality (see page 298), and anyone struck by the blade gains +1 Ablaze Condition. If wielders do not possess the Arcane Magic (Fire) Talent, and they fumble an attack with the Flaming Sword, they gain +1 Ablaze Condition."
+        desc: "You wreathe a sword in magical flames. The weapon has Damage +6 and the Impact Quality (see page 298), and anyone struck by the blade gains +1 Ablaze Condition. If wielders do not possess the Arcane Magic (Fire) Talent, and they fumble an attack with the Flaming Sword, they gain +1 Ablaze Condition.",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     },
     PURGE: {
         name: "Purge",
@@ -4537,7 +4717,11 @@ TEW.DATABASE.SPELLS.SET = {
         duration: {
             type: "Willpower Bonus" /* SpellDuration.WILL_BONUS */
         },
-        desc: "You funnel intense flame to burn away the taint and corruption in an area. Anything flammable is set alight, and any creatures in the area takes +SL Ablaze conditions. If the location contains a Corrupting Influence, such as Dhar, warpstone, or a Chaostainted object, it too will smoulder and blacken, beginning to burn. This spell may be maintained in subsequent rounds by passing a Channelling Test. As a rough guideline, a small quantity of warpstone, or a minor Chaos-tainted object may require 10-Willpower Bonus Rounds (minimum of 1 Round). A larger quantity of warpstone or a more potent Chaos-tainted object may require double this. A powerful Chaos Artefact may take hours, or even longer..."
+        desc: "You funnel intense flame to burn away the taint and corruption in an area. Anything flammable is set alight, and any creatures in the area takes +SL Ablaze conditions. If the location contains a Corrupting Influence, such as Dhar, warpstone, or a Chaostainted object, it too will smoulder and blacken, beginning to burn. This spell may be maintained in subsequent rounds by passing a Channelling Test. As a rough guideline, a small quantity of warpstone, or a minor Chaos-tainted object may require 10-Willpower Bonus Rounds (minimum of 1 Round). A larger quantity of warpstone or a more potent Chaos-tainted object may require double this. A powerful Chaos Artefact may take hours, or even longer...",
+        effect: {
+            type: 3 /* SpellEffectType.SPECIAL */,
+            handler: (caster, targets) => { },
+        }
     }
 };
 // #endregion === SPELLS SET === //

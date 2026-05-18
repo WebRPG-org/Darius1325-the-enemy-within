@@ -393,10 +393,10 @@ TEW.COMBAT.getWeaponQualityEffects = (weapon) => {
     let slashLevel = 0;
     let attackBonusSL = 0;
     let defenceBonusSL = 0;
-    let bonusPA = 0;
-    let ignoredPA = 0;
+    let bonusAP = 0;
+    let ignoredAP = 0;
+    let ignoreMetalArmor = false;
     let effects = {};
-    let ignoredArmorTypes = [];
     weapon.qualities.forEach(quality => {
         if (quality === 2 /* WeaponQuality.IMPALE */) {
             effects.IMPALE = true;
@@ -408,31 +408,29 @@ TEW.COMBAT.getWeaponQualityEffects = (weapon) => {
             effects.UNDAMAGING = true;
         }
         else if (quality === 10 /* WeaponQuality.SHIELD_1 */) {
-            bonusPA += 1;
+            bonusAP += 1;
         }
         else if (quality === 11 /* WeaponQuality.SHIELD_2 */) {
-            bonusPA += 2;
+            bonusAP += 2;
         }
         else if (quality === 12 /* WeaponQuality.SHIELD_3 */) {
-            bonusPA += 3;
+            bonusAP += 3;
         }
         else if (quality === 13 /* WeaponQuality.SHIELD_4 */) {
-            bonusPA += 4;
+            bonusAP += 4;
         }
         else if (quality === 14 /* WeaponQuality.SHIELD_5 */) {
-            bonusPA += 5;
+            bonusAP += 5;
         }
         else if (quality === 15 /* WeaponQuality.DEFENSIVE */) {
             defenceMod += 10;
         }
         else if (quality === 0 /* WeaponQuality.HACK */) {
-            ignoredPA += 1;
+            ignoredAP += 1;
         }
         else if (quality === 3 /* WeaponQuality.PENETRATING */) {
-            ignoredArmorTypes.push(4 /* ArmorGroup.CHAINMAIL */);
-            ignoredArmorTypes.push(3 /* ArmorGroup.BREASTPLATE */);
-            ignoredArmorTypes.push(2 /* ArmorGroup.PLATE */);
-            ignoredPA += 1;
+            ignoreMetalArmor = true;
+            ignoredAP += 1;
         }
         else if (quality === 4 /* WeaponQuality.PRECISE */) {
             attackBonusSL += 1;
@@ -488,9 +486,9 @@ TEW.COMBAT.getWeaponQualityEffects = (weapon) => {
         defenceMod,
         attackBonusSL,
         defenceBonusSL,
-        bonusPA,
-        ignoredPA,
-        ignoredArmorTypes,
+        bonusAP,
+        ignoredAP,
+        ignoreMetalArmor,
         effects,
         slashLevel
     };
@@ -1878,17 +1876,23 @@ Game_Action.prototype.applyWeaponAttack = function (target) {
     const combatResult = TEW.DICE.combatOpposedSkillTest(attackerCombatSkill.value + attackerWeaponEffects.attackMod + this.attackRollModifier() + attackerConditionMod, defenderCombatSkill.value + defenderWeaponEffects.defenceMod + defenderConditionMod, true, false // GIGA TODO
     );
     // Special weapon quality checks
-    // Impale
+    // Impale - critical hit on tens
     if (attackerWeaponEffects.effects.IMPALE) {
         if (combatResult.rollAttacker % 10 === 0) {
             combatResult.criticalAttacker = true;
         }
     }
-    // Damaging
+    // Damaging - SL can be replaced with unit die if higher
     if (attackerWeaponEffects.effects.DAMAGING) {
-        const damagingSL = (combatResult.rollAttacker % 10) || 10; // 10 SL if roll is a multiple of 10
+        const damagingSL = (combatResult.rollAttacker % 10) || 10; // 10 SL if roll ends in 0
         if (damagingSL > combatResult.slAttacker) {
             combatResult.slAttacker = damagingSL;
+        }
+    }
+    // Dangerous - ??? on a failed roll ending in 9
+    if (attackerWeaponEffects.effects.DANGEROUS) {
+        if (!combatResult.success && combatResult.rollAttacker % 10 === 9) {
+            // TODO maladresse ??
         }
     }
     // FIXME do we add bonus SL before or after hit check ?
@@ -1903,15 +1907,24 @@ Game_Action.prototype.applyWeaponAttack = function (target) {
     if (result.isHit) {
         // TODO Check weapon effects on crit (make a list)
         // TODO Check for crits
-        //   Check location
+        // Check location
         const hitLocation = 2 /* BodyLocation.HEAD */; // TODO location table
+        // Armor and armor penetration
+        let defenderArmorPoints = target.armorPointsAtLocation(location, attackerWeaponEffects.ignoredAP, attackerWeaponEffects.ignoreMetalArmor);
+        if (attackerWeaponEffects.effects.UNDAMAGING) {
+            defenderArmorPoints *= 2;
+        }
         // Compute damage
         //   Add weapon bonus + stat bonus + opposed DR
         //   Remove defender's toug + TODO armor points
-        const damage = combatResult.slAttacker - combatResult.slDefender
+        let damage = combatResult.slAttacker - combatResult.slDefender
             + attackerWeapon.damage + (attackerWeapon.strBonus ? attacker.paramBonus("STRG" /* Stat.STRG */) : 0)
-            - target.paramBonus("TOUG" /* Stat.TOUG */);
-        this.executeDamage(target, 1);
+            - target.paramBonus("TOUG" /* Stat.TOUG */) - defenderArmorPoints;
+        // Impact - add unit die to damage
+        if (attackerWeaponEffects.effects.IMPACT) {
+            damage += (combatResult.rollAttacker % 10) || 10;
+        }
+        this.executeDamage(target, Math.max(damage, 1));
         //   Check weapon effects based on location (make a list)
         if (attackerWeaponEffects.effects.PUMMEL && hitLocation === 2 /* BodyLocation.HEAD */) {
             const pummelTestResult = TEW.DICE.opposedTest(attacker.paramByName("STRG" /* Stat.STRG */), target.paramByName("STRG" /* Stat.STRG */));
@@ -1921,6 +1934,14 @@ Game_Action.prototype.applyWeaponAttack = function (target) {
         }
         if (attackerWeaponEffects.effects.ENTANGLE) {
             target.addCondition("ENTANGLED" /* ConditionId.ENTANGLED */, 1, attacker.paramBonus("STRG" /* Stat.STRG */));
+        }
+        if (!isMeleeWeapon) {
+            if (attackerWeapon.group === 14 /* WeaponGroup.BLACKPOWDER */) {
+                const brokenTestResult = TEW.DICE.skillTest(target, 'CALM', 20);
+                if (!brokenTestResult.success) {
+                    // add broken condition
+                }
+            }
         }
         // TODO Lookup crit table (help me)
     }
@@ -1967,8 +1988,23 @@ Game_Action.prototype.applySpell = function (target) {
     // Resolve spell
     if (this._subjectAbilityRoll.sl >= spell.cn) {
         // TODO Prompt for spell bonus effects (e.g. additional targets, increased range... etc)
+        // handled by spell effect ?
         // TODO Resolve spell domain effects (e.g. Chamon ignoring metal armor)
-        // TODO apply to target(s)
+        switch (spell.effect.type) {
+            case 0 /* SpellEffectType.MAGIC_MISSILE */:
+                const damage = this._subjectAbilityRoll.sl + spell.effect.damage
+                    - target.paramBonus("TOUG" /* Stat.TOUG */);
+                this.executeDamage(target, Math.max(damage, 1));
+                break;
+            case 1 /* SpellEffectType.SCALING_DAMAGE */:
+                break;
+            case 2 /* SpellEffectType.CONDITION */:
+                target.addCondition(spell.effect.conditionId);
+                break;
+            case 3 /* SpellEffectType.SPECIAL */:
+                spell.effect.handler(attacker, target, this._subjectAbilityRoll.sl);
+                break;
+        }
     }
     // GIGA TODO counterspell
 };
@@ -6098,20 +6134,26 @@ function Window_TurnOrder() {
 }
 Window_TurnOrder.SOURCE_DIR = 'sv_turn_order';
 Window_TurnOrder.IMAGE_CACHE_RID = 'Window_TurnOrder_RID';
+Window_TurnOrder.STATE_COLLAPSED = 'collapsed';
+Window_TurnOrder.STATE_EXTENDED = 'extended';
 Window_TurnOrder.prototype = Object.create(Window_Base.prototype);
 Window_TurnOrder.prototype.constructor = Window_TurnOrder;
 Window_TurnOrder.prototype.initialize = function () {
-    Window_Base.prototype.initialize.call(this, 0, 0, Graphics.boxWidth, 80); // TODO constant
+    Window_Base.prototype.initialize.call(this, 0, 0, 96, Graphics.boxHeight); // TODO constant
     this._orderedImageNames = [];
     this._turnIndex = -1;
+    this._state = Window_TurnOrder.STATE_COLLAPSED;
 };
 Window_TurnOrder.prototype.setTurnOrder = function () {
     if (BattleManager._turnOrder && BattleManager._turnOrder.length !== this._orderedImageNames.length) {
         this._orderedImageNames = BattleManager._turnOrder.map(battler => battler.turnOrderSpriteName);
-        console.log("turn order registered sprites: ", this._orderedImageNames);
         for (let image of this._orderedImageNames) {
             this.reserveImage(image);
         }
+        this.reserveImage("bg_actor");
+        this.reserveImage("bg_enemy");
+        this.reserveImage("bg_actor_extended");
+        this.reserveImage("bg_enemy_extended");
     }
 };
 Window_TurnOrder.prototype.refresh = function () {
@@ -6125,19 +6167,78 @@ Window_TurnOrder.prototype.refresh = function () {
                 setTimeout(() => readyCheck(resolve), 100);
         };
         new Promise(readyCheck).then(() => {
-            for (let iterator = 0; iterator < 11; iterator++) {
+            for (let iterator = 0; iterator < 9; iterator++) {
                 const index = (iterator + this._turnIndex) % this._orderedImageNames.length;
-                const bitmap = this.loadImage(this._orderedImageNames[index]);
-                // 100px sprites + 18px separators: 1280 = 11 * 100 + 10 * 18
-                // Add an offset to center the sprite in a 100px slot
-                const xOffset = iterator * 118 + Math.floor((100 - bitmap.rect.width) / 2);
-                this.contents.blt(bitmap, 0, 0, bitmap.rect.width, bitmap.rect.height, xOffset, 0);
+                const character = this.loadImage(this._orderedImageNames[index]);
+                const background = this.loadImage((BattleManager._turnOrder[index].isActor ? 'bg_actor' : 'bg_enemy')
+                    + (this._state === Window_TurnOrder.STATE_EXTENDED ? '_extended' : ''));
+                // 80px tall tabs --> 9 tabs in 720px box height
+                // Add an offset to center the sprite in a 80px slot
+                const bgYOffset = iterator * 80;
+                const spriteYOffset = bgYOffset + Math.floor((80 - character.rect.height) / 2);
+                this.contents.blt(background, 0, 0, background.rect.width, background.rect.height, 0, bgYOffset);
+                this.contents.blt(character, 0, 0, character.rect.width, character.rect.height, 16, spriteYOffset);
+                if (this._state === Window_TurnOrder.STATE_EXTENDED) { // TODO constants
+                    this.drawExtendedTurnOrderInfo(index, iterator);
+                }
             }
         });
     }
 };
+Window_TurnOrder.prototype.drawExtendedTurnOrderInfo = function (index, iterator) {
+    const battlerAccessor = BattleManager._turnOrder[index];
+    const battler = this.battler(battlerAccessor.battlerIndex, battlerAccessor.isActor);
+    this.contents.fontSize = 16;
+    this.changeTextColor('#f0f0f0');
+    let conditionIterator = 0;
+    for (let conditionId of Object.keys(battler._conditions).sort()) {
+        const icon = TEW.DATABASE.CONDITIONS[conditionId].icon || 0;
+        const iconXOffset = conditionIterator * 40 + 112; // TODO constants
+        const iconYOffset = iterator * 80 + 40;
+        const textXOffset = iconXOffset + 28;
+        const textYOffset = iconYOffset - 16;
+        this.drawIcon(icon, iconXOffset, iconYOffset);
+        const stacks = battler._conditions[conditionId].stacks;
+        if (stacks > 1) {
+            this.drawText(stacks, textXOffset, textYOffset, 8, 'left');
+        }
+        conditionIterator++;
+    }
+    this.resetFontSettings();
+};
+Window_TurnOrder.prototype.battler = function (battlerIndex, isActor) {
+    return isActor
+        ? $gamePartyTs.members()[battlerIndex]
+        : $gameTroopTs.members()[battlerIndex];
+};
+Window_TurnOrder.prototype.windowWidth = function () {
+    return this.width;
+};
+Window_TurnOrder.prototype.windowHeight = function () {
+    return Graphics.boxHeight;
+};
+Window_TurnOrder.prototype.collapse = function () {
+    this._state = Window_TurnOrder.STATE_COLLAPSED;
+    this.width = 96;
+    this.contents.resize(96, Graphics.boxHeight);
+    this.refresh();
+};
+Window_TurnOrder.prototype.extend = function () {
+    this._state = Window_TurnOrder.STATE_EXTENDED;
+    this.width = 296;
+    this.contents.resize(296, Graphics.boxHeight);
+    this.refresh();
+};
 Window_TurnOrder.prototype.update = function () {
     Window_Base.prototype.update.call(this);
+    if (Input.isTriggered('tab')) {
+        if (this._state === Window_TurnOrder.STATE_COLLAPSED) {
+            this.extend();
+        }
+        else if (this._state === Window_TurnOrder.STATE_EXTENDED) {
+            this.collapse();
+        }
+    }
     const turnIndex = BattleManager.turnIndex();
     if (this._turnIndex !== turnIndex) {
         this._turnIndex = turnIndex;
@@ -6800,15 +6901,6 @@ Window_TacticsMoveCommand.prototype.windowWidth = function () {
 };
 Window_TacticsMoveCommand.prototype.windowHeight = function () {
     return 240; // 4 * line height + 2 * text padding + 2 * bg padding
-};
-Window_TurnOrder.prototype.windowWidth = function () {
-    return Graphics.boxWidth;
-};
-Window_TurnOrder.prototype.windowHeight = function () {
-    return 80;
-};
-Window_TurnOrder.prototype.backgroundImageName = function () {
-    return "bg_turnOrder";
 };
 Window_TacticsSpellList.prototype.windowHeight = function () {
     return 240; // 4 * line height + 2 * text padding + 2 * bg padding

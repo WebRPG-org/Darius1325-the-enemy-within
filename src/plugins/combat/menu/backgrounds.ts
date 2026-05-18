@@ -31,16 +31,6 @@ Window_TacticsMoveCommand.prototype.windowHeight = function() {
     return 240; // 4 * line height + 2 * text padding + 2 * bg padding
 };
 
-Window_TurnOrder.prototype.windowWidth = function() {
-    return Graphics.boxWidth;
-};
-Window_TurnOrder.prototype.windowHeight = function() {
-    return 80;
-};
-Window_TurnOrder.prototype.backgroundImageName = function() {
-    return "bg_turnOrder";
-};
-
 Window_TacticsSpellList.prototype.windowHeight = function() {
     return 240; // 4 * line height + 2 * text padding + 2 * bg padding
 };

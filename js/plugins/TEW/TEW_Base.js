@@ -948,6 +948,27 @@ Game_BattlerBase.prototype.armorsAtLocations = function (locations) {
     return this._equippedArmors.map((armor) => TEW.DATABASE.ARMORS.SET[armor])
         .filter((armor) => armor.locations.some(location => locations.includes(location)));
 };
+// Use ignoredAP = -1 to ignore all AP
+Game_BattlerBase.prototype.armorPointsAtLocation = function (location, ignoredAP = 0, ignoreMetalArmor = false) {
+    let armors = this.armorsAtLocation(location);
+    const sumArmorPoints = (armors) => armors.reduce((acc, armor) => acc + armor.ap, 0);
+    if (ignoreMetalArmor) {
+        const nonMetallicArmors = armors.filter(armor => ![3 /* ArmorGroup.BREASTPLATE */, 2 /* ArmorGroup.PLATE */, 4 /* ArmorGroup.CHAINMAIL */].includes(armor.group));
+        if (ignoredAP === -1) { // ignore all metal armor
+            return sumArmorPoints(nonMetallicArmors);
+        }
+        else if (ignoredAP > 0) { // ignore only some metal armor points
+            const metallicArmors = armors.filter(armor => armor.group === 3 /* ArmorGroup.BREASTPLATE */ ||
+                armor.group === 4 /* ArmorGroup.CHAINMAIL */ ||
+                armor.group === 2 /* ArmorGroup.PLATE */);
+            return sumArmorPoints(nonMetallicArmors)
+                + Math.max(0, sumArmorPoints(metallicArmors) - ignoredAP);
+        }
+    }
+    else {
+        return Math.max(0, sumArmorPoints(armors) - ignoredAP);
+    }
+};
 Game_BattlerBase.prototype.lowestArmorPointsByLocation = function () {
     let aggregator = {};
     aggregator[0 /* BodyLocation.ARMS */] = 0;
@@ -994,14 +1015,14 @@ Game_BattlerBase.prototype.conditionStacks = function (conditionId) {
 Game_BattlerBase.prototype.hasCondition = function (conditionId) {
     return this.conditionStacks(conditionId) > 0;
 };
-Game_BattlerBase.prototype.addCondition = function (conditionId, amount = 1, entangledStrength = undefined) {
+Game_BattlerBase.prototype.addCondition = function (conditionId, stacks = 1, entangledStrength = undefined) {
     const condition = TEW.DATABASE.CONDITIONS[conditionId];
     if (!condition)
         return;
     const current = this.conditionStacks(conditionId);
     const max = condition.maxStacks === Infinity ? Number.MAX_SAFE_INTEGER : condition.maxStacks;
     this._conditions[conditionId] = {
-        stacks: Math.min(current + amount, max),
+        stacks: Math.min(current + stacks, max),
         entangledStrength
     };
 };

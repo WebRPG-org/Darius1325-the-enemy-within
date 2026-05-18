@@ -23,6 +23,7 @@ export interface Game_BattlerBase {
     _armors: string[];
     _equippedArmors: string[];
     _ammo: Record<string, number>;
+    _conditions: Record<ConditionId, { stacks: number; entangledStrength?: number }>;
 
     mhp: number;
     weas: number;

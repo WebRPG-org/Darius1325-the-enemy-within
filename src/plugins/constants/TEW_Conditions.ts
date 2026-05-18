@@ -30,6 +30,7 @@ TEW.DATABASE.CONDITIONS = {
     ABLAZE: {
         id: ConditionId.ABLAZE,
         name: "Ablaze",
+        icon: 64,
         message: "burned",
         description: "You are on fire! You suffer 1 Wound per stack at the start of your turn, ignoring Armour Points. You may spend your Action to attempt an Athletics Test (SL 0) to extinguish the flames.",
         maxStacks: Infinity,
