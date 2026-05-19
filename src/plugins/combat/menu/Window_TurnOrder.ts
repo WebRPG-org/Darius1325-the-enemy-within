@@ -14,62 +14,100 @@ function Window_TurnOrder() {
 Window_TurnOrder.SOURCE_DIR = 'sv_turn_order';
 Window_TurnOrder.IMAGE_CACHE_RID = 'Window_TurnOrder_RID';
 Window_TurnOrder.STATE_COLLAPSED = 'collapsed';
+Window_TurnOrder.STATE_EXTENDING = 'extending';
 Window_TurnOrder.STATE_EXTENDED = 'extended';
+Window_TurnOrder.STATE_COLLAPSING = 'collapsing';
+Window_TurnOrder.FIRST_TRANSITION_FRAME = 0;
+Window_TurnOrder.LAST_TRANSITION_FRAME = 20;
 
 export default Window_TurnOrder.prototype = Object.create(Window_Base.prototype);
 Window_TurnOrder.prototype.constructor = Window_TurnOrder;
 
 Window_TurnOrder.prototype.initialize = function() {
-    Window_Base.prototype.initialize.call(this, 0, 0, 96, Graphics.boxHeight); // TODO constant
+    Window_Base.prototype.initialize.call(this, 0, 0, 0, Graphics.boxHeight); // TODO constant
+
     this._orderedImageNames = [];
     this._turnIndex = -1;
+
     this._state = Window_TurnOrder.STATE_COLLAPSED;
+    this._transitionFrame = 0;
+
+    this.contents.resize(296, Graphics.boxHeight);
+    this.width = 96;
+
+    this._imagesReady = false;
+    
+    this.reserveImage("bg_actor");
+    this.reserveImage("bg_enemy");
+    this.reserveImage("bg_actor_extended");
+    this.reserveImage("bg_enemy_extended");
+    this.reserveImage("bg_actor_transition");
+    this.reserveImage("bg_enemy_transition");
 };
 
 Window_TurnOrder.prototype.setTurnOrder = function() {
     if (BattleManager._turnOrder && BattleManager._turnOrder.length !== this._orderedImageNames.length) {
+        this._imagesReady = false;
         this._orderedImageNames = BattleManager._turnOrder.map(battler => battler.turnOrderSpriteName);
         for (let image of this._orderedImageNames) {
             this.reserveImage(image);
         }
-        this.reserveImage("bg_actor");
-        this.reserveImage("bg_enemy");
-        this.reserveImage("bg_actor_extended");
-        this.reserveImage("bg_enemy_extended");
-    }
-};
-
-Window_TurnOrder.prototype.refresh = function() {
-    this.contents.clear();
-    this.setTurnOrder();
-
-    if (this._orderedImageNames.length > 0) {
         const readyCheck = resolve => {
             if (ImageManager.isReady()) resolve();
             else setTimeout(() => readyCheck(resolve), 100);
         };
         new Promise(readyCheck).then(() => {
+            this._imagesReady = true;
+            this.refresh();
+        });
+    }
+};
+
+Window_TurnOrder.prototype.refresh = function() {
+    this.setTurnOrder();
+
+    console.log(this._imagesReady);
+
+    if (this._imagesReady) {
+        if (this._orderedImageNames.length > 0) {
             for (let iterator = 0; iterator < 9; iterator++) {
-                const index = (iterator + this._turnIndex) % this._orderedImageNames.length;
-                const character: Bitmap = this.loadImage(this._orderedImageNames[index]);
-
-                const background: Bitmap = this.loadImage(
-                    (BattleManager._turnOrder[index].isActor ? 'bg_actor' : 'bg_enemy')
-                    + (this._state === Window_TurnOrder.STATE_EXTENDED ? '_extended' : ''));
-
-                // 80px tall tabs --> 9 tabs in 720px box height
-                // Add an offset to center the sprite in a 80px slot
+                const characterIndex = (iterator + this._turnIndex) % this._orderedImageNames.length;
+                const battlerAccessor = BattleManager._turnOrder[characterIndex];
                 const bgYOffset = iterator * 80;
-                const spriteYOffset = bgYOffset + Math.floor((80 - character.rect.height) / 2);
 
-                this.contents.blt(background, 0, 0, background.rect.width, background.rect.height, 0, bgYOffset);
-                this.contents.blt(character, 0, 0, character.rect.width, character.rect.height, 16, spriteYOffset);
+                if (this._state === Window_TurnOrder.STATE_COLLAPSING) {
+                    const background: Bitmap = this.loadImage(
+                        battlerAccessor.isActor ? 'bg_actor_transition' : 'bg_enemy_transition');
+                    const bgXOffset = this._transitionFrame * 10 + 76; // TODO constants
+                    this.contents.clearRect(bgXOffset, bgYOffset, 20, 80);
+                    this.contents.blt(background, 0, 0, background.rect.width, background.rect.height, bgXOffset, bgYOffset);
 
-                if (this._state === Window_TurnOrder.STATE_EXTENDED) { // TODO constants
-                    this.drawExtendedTurnOrderInfo(index, iterator);
+                } else if (this._state === Window_TurnOrder.STATE_EXTENDING) {
+                    const background: Bitmap = this.loadImage(
+                        battlerAccessor.isActor ? 'bg_actor_transition' : 'bg_enemy_transition');
+                    const bgXOffset = this._transitionFrame * 10 + 76;
+                    this.contents.blt(background, 0, 0, background.rect.width, background.rect.height, bgXOffset, bgYOffset);
+
+                } else {
+                    const background: Bitmap = this.loadImage(
+                        (BattleManager._turnOrder[characterIndex].isActor ? 'bg_actor' : 'bg_enemy')
+                        + (this._state === Window_TurnOrder.STATE_EXTENDED ? '_extended' : ''));
+                    const character: Bitmap = this.loadImage(this._orderedImageNames[characterIndex]);
+
+                    // 80px tall tabs --> 9 tabs in 720px box height
+                    // Add an offset to center the sprite in a 80px slot
+                    const bgYOffset = iterator * 80;
+                    const spriteYOffset = bgYOffset + Math.floor((80 - character.rect.height) / 2);
+
+                    this.contents.blt(background, 0, 0, background.rect.width, background.rect.height, 0, bgYOffset, background.rect.width, background.rect.height);
+                    this.contents.blt(character, 0, 0, character.rect.width, character.rect.height, 16, spriteYOffset, character.rect.width, character.rect.height);
+
+                    if (this._state === Window_TurnOrder.STATE_EXTENDED) { // TODO constants
+                        this.drawExtendedTurnOrderInfo(characterIndex, iterator);
+                    }
                 }
             }
-        });
+        }
     }
 };
 
@@ -114,34 +152,46 @@ Window_TurnOrder.prototype.windowHeight = function() {
 };
 
 Window_TurnOrder.prototype.collapse = function() {
-    this._state = Window_TurnOrder.STATE_COLLAPSED;
-    this.width = 96;
-    this.contents.resize(96, Graphics.boxHeight);
-    this.refresh();
+    this._state = Window_TurnOrder.STATE_COLLAPSING;
 };
 
 Window_TurnOrder.prototype.extend = function() {
-    this._state = Window_TurnOrder.STATE_EXTENDED;
+    this._state = Window_TurnOrder.STATE_EXTENDING;
     this.width = 296;
-    this.contents.resize(296, Graphics.boxHeight);
-    this.refresh();
 };
 
 Window_TurnOrder.prototype.update = function() {
     Window_Base.prototype.update.call(this);
 
-    if (Input.isTriggered('tab')) {
-        if (this._state === Window_TurnOrder.STATE_COLLAPSED) {
-            this.extend();
-        } else if (this._state === Window_TurnOrder.STATE_EXTENDED) {
-            this.collapse();
+    if (this._state === Window_TurnOrder.STATE_COLLAPSING) {
+        if (this._transitionFrame <= Window_TurnOrder.FIRST_TRANSITION_FRAME) {
+            this._state = Window_TurnOrder.STATE_COLLAPSED;
+            this.width = 96;
+        } else {
+            this._transitionFrame--;
         }
-    }
-
-    const turnIndex = BattleManager.turnIndex();
-    if (this._turnIndex !== turnIndex) {
-        this._turnIndex = turnIndex;
         this.refresh();
+    } else if (this._state === Window_TurnOrder.STATE_EXTENDING) {
+        if (this._transitionFrame >= Window_TurnOrder.LAST_TRANSITION_FRAME) {
+            this._state = Window_TurnOrder.STATE_EXTENDED;
+        } else {
+            this._transitionFrame++;
+        }
+        this.refresh();
+    } else {
+        if (Input.isRepeated('tab')) {
+            if (this._state === Window_TurnOrder.STATE_COLLAPSED) {
+                this.extend();
+            } else if (this._state === Window_TurnOrder.STATE_EXTENDED) {
+                this.collapse();
+            }
+        } else {
+            const turnIndex = BattleManager.turnIndex();
+            if (this._turnIndex !== turnIndex) {
+                this._turnIndex = turnIndex;
+                this.refresh();
+            }
+        }
     }
 };
 
