@@ -105,6 +105,9 @@ export declare class Sprite extends PIXI.Sprite {
 
 // ============================== //
 // #region ============================== Public methods ============================== //
+
+	public constructor(bitmap: Bitmap);
+
     /**
      * Updates the sprite’s logic and rendering properties.
      */

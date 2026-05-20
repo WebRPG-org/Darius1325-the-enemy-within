@@ -2,8 +2,8 @@
 
 import TEW from "../../_types/tew";
 import { Bitmap } from "../../../rmmv/core/Bitmap";
-import { ConditionId } from "../../_types/enum";
 import { Game_BattlerBase } from "../../base/stats/Game_BattlerBase";
+import { Sprite } from "../../../rmmv/core/Sprite";
 
 // $StartCompilation
 
@@ -20,65 +20,72 @@ export default Window_TurnOrder.prototype = Object.create(Window_Base.prototype)
 Window_TurnOrder.prototype.constructor = Window_TurnOrder;
 
 Window_TurnOrder.prototype.initialize = function() {
-    Window_Base.prototype.initialize.call(this, 0, 0, 96, Graphics.boxHeight); // TODO constant
-    this._orderedImageNames = [];
+    Window_Base.prototype.initialize.call(this, 0, 0, 0, Graphics.boxHeight); // TODO constant
+    this._aliveBattlerCount = -1;
     this._turnIndex = -1;
+
+    this.contents.resize(296, Graphics.boxHeight);
+
+    this.width = 96;
+    this.background = new Sprite(new Bitmap(296, Graphics.boxHeight));
+    this.background.setFrame(200, 0, 96, Graphics.boxHeight);
+    this.addChild(this.background);
     this._state = Window_TurnOrder.STATE_COLLAPSED;
+
+    this._imagesReady = false;
+
+    this.infoDisplay = new Sprite(new Bitmap(296, Graphics.boxHeight));
+    this.infoDisplay.setFrame(0, 0, 96, Graphics.boxHeight);
+    this.infoDisplay.fontSize = 16;
+    this.infoDisplay.textColor = '#f0f0f0';
+    this.addChild(this.infoDisplay);
 };
 
 Window_TurnOrder.prototype.setTurnOrder = function() {
-    if (BattleManager._turnOrder && BattleManager._turnOrder.length !== this._orderedImageNames.length) {
-        this._orderedImageNames = BattleManager._turnOrder.map(battler => battler.turnOrderSpriteName);
-        for (let image of this._orderedImageNames) {
+    if (BattleManager._turnOrder && BattleManager._turnOrder.length !== this._aliveBattlerCount) {
+        this._imagesReady = false;
+        this._aliveBattlerCount = BattleManager._turnOrder.length;
+        for (let image of BattleManager._turnOrder.map(battler => battler.turnOrderSpriteName)) {
             this.reserveImage(image);
         }
-        this.reserveImage("bg_actor");
-        this.reserveImage("bg_enemy");
         this.reserveImage("bg_actor_extended");
         this.reserveImage("bg_enemy_extended");
-    }
-};
-
-Window_TurnOrder.prototype.refresh = function() {
-    this.contents.clear();
-    this.setTurnOrder();
-
-    if (this._orderedImageNames.length > 0) {
         const readyCheck = resolve => {
             if (ImageManager.isReady()) resolve();
             else setTimeout(() => readyCheck(resolve), 100);
         };
         new Promise(readyCheck).then(() => {
-            for (let iterator = 0; iterator < 9; iterator++) {
-                const index = (iterator + this._turnIndex) % this._orderedImageNames.length;
-                const character: Bitmap = this.loadImage(this._orderedImageNames[index]);
-
-                const background: Bitmap = this.loadImage(
-                    (BattleManager._turnOrder[index].isActor ? 'bg_actor' : 'bg_enemy')
-                    + (this._state === Window_TurnOrder.STATE_EXTENDED ? '_extended' : ''));
-
-                // 80px tall tabs --> 9 tabs in 720px box height
-                // Add an offset to center the sprite in a 80px slot
-                const bgYOffset = iterator * 80;
-                const spriteYOffset = bgYOffset + Math.floor((80 - character.rect.height) / 2);
-
-                this.contents.blt(background, 0, 0, background.rect.width, background.rect.height, 0, bgYOffset);
-                this.contents.blt(character, 0, 0, character.rect.width, character.rect.height, 16, spriteYOffset);
-
-                if (this._state === Window_TurnOrder.STATE_EXTENDED) { // TODO constants
-                    this.drawExtendedTurnOrderInfo(index, iterator);
-                }
-            }
+            this._imagesReady = true;
+            this.refresh();
         });
     }
 };
 
-Window_TurnOrder.prototype.drawExtendedTurnOrderInfo = function(index: number, iterator: number) {
-    const battlerAccessor = BattleManager._turnOrder[index];
-    const battler: Game_BattlerBase = this.battler(battlerAccessor.battlerIndex, battlerAccessor.isActor);
+Window_TurnOrder.prototype.refresh = function() {
+    if (this._imagesReady && this._aliveBattlerCount > 0) {
+        this.infoDisplay.bitmap.clear();
+        for (let iterator = 0; iterator < 9; iterator++) {
+            const rolloverIndex = (iterator + this._turnIndex) % this._aliveBattlerCount;
+            const battlerAccessor = BattleManager._turnOrder[rolloverIndex];
 
-    this.contents.fontSize = 16;
-    this.changeTextColor('#f0f0f0');
+            this.drawBackground(battlerAccessor, iterator);
+            this.drawCharacterInfo(battlerAccessor, iterator);
+        }
+    }
+};
+
+Window_TurnOrder.prototype.drawBackground = function(battlerAccessor: { isActor: boolean }, iterator: number) {
+    const background: Bitmap = this.loadImage(battlerAccessor.isActor ? 'bg_actor_extended' : 'bg_enemy_extended');
+    const bgYOffset = iterator * 80;
+    this.background.bitmap.blt(background, 0, 0, background.rect.width, background.rect.height, 0, bgYOffset);
+};
+
+Window_TurnOrder.prototype.drawCharacterInfo = function(battlerAccessor: { battlerIndex: number, isActor: boolean, turnOrderSpriteName: string }, iterator: number) {
+    const battler: Game_BattlerBase = this.battler(battlerAccessor.battlerIndex, battlerAccessor.isActor);
+    
+    const character: Bitmap = this.loadImage(battlerAccessor.turnOrderSpriteName);
+    const spriteYOffset = iterator * 80 + Math.floor((80 - character.rect.height) / 2);
+    this.infoDisplay.bitmap.blt(character, 0, 0, character.rect.width, character.rect.height, 16, spriteYOffset);
 
     let conditionIterator = 0;
     for (let conditionId of Object.keys(battler._conditions).sort()) {
@@ -91,12 +98,10 @@ Window_TurnOrder.prototype.drawExtendedTurnOrderInfo = function(index: number, i
         
         const stacks = battler._conditions[conditionId].stacks;
         if (stacks > 1) {
-            this.drawText(stacks, textXOffset, textYOffset, 8, 'left');
+            this.drawText(stacks, textXOffset, textYOffset, 8);
         }
         conditionIterator++;
     }
-
-    this.resetFontSettings();
 };
 
 Window_TurnOrder.prototype.battler = function(battlerIndex: number, isActor: boolean) {
@@ -116,15 +121,15 @@ Window_TurnOrder.prototype.windowHeight = function() {
 Window_TurnOrder.prototype.collapse = function() {
     this._state = Window_TurnOrder.STATE_COLLAPSED;
     this.width = 96;
-    this.contents.resize(96, Graphics.boxHeight);
-    this.refresh();
+    this.background.setFrame(200, 0, 96, Graphics.boxHeight);
+    this.infoDisplay.setFrame(0, 0, 96, Graphics.boxHeight);
 };
 
 Window_TurnOrder.prototype.extend = function() {
     this._state = Window_TurnOrder.STATE_EXTENDED;
     this.width = 296;
-    this.contents.resize(296, Graphics.boxHeight);
-    this.refresh();
+    this.background.setFrame(0, 0, 296, Graphics.boxHeight);
+    this.infoDisplay.setFrame(0, 0, 296, Graphics.boxHeight);
 };
 
 Window_TurnOrder.prototype.update = function() {
@@ -141,6 +146,7 @@ Window_TurnOrder.prototype.update = function() {
     const turnIndex = BattleManager.turnIndex();
     if (this._turnIndex !== turnIndex) {
         this._turnIndex = turnIndex;
+        this.setTurnOrder();
         this.refresh();
     }
 };
@@ -164,4 +170,17 @@ Window_TurnOrder.prototype.horizontalBorderPadding = function() {
 
 Window_TurnOrder.prototype.verticalBorderPadding = function() {
     return 0;
+};
+
+Window_TurnOrder.prototype.drawText = function(text: string, x: number, y: number, maxWidth: number, align = 'left') {
+    this.infoDisplay.bitmap.drawText(text, x, y, maxWidth, this.lineHeight(), align);
+};
+
+Window_TurnOrder.prototype.drawIcon = function(iconIndex: number, x: number, y: number) {
+    var bitmap = ImageManager.loadSystem('IconSet');
+    var pw = Window_Base._iconWidth;
+    var ph = Window_Base._iconHeight;
+    var sx = iconIndex % 16 * pw;
+    var sy = Math.floor(iconIndex / 16) * ph;
+    this.infoDisplay.bitmap.blt(bitmap, sx, sy, pw, ph, x, y);
 };
